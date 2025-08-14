@@ -161,7 +161,7 @@ fun ModernBalanceCard(
                     Brush.linearGradient(
                         colors = listOf(
                             Color(0xFF6C63FF),
-                            Color(0xFF44e278)
+                            Color(0xFF4834DF)
                         )
                     )
                 )
