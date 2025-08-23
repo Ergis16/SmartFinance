@@ -18,13 +18,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.TransactionManager
+import com.gis.smartfinance.data.PersistentTransactionManager
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,12 +37,17 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit
 ) {
-    // Observe real data from TransactionManager
-    val transactions by TransactionManager.transactions.collectAsState()
-    val totalIncome by TransactionManager.totalIncome.collectAsState()
-    val totalExpense by TransactionManager.totalExpense.collectAsState()
-    val balance by TransactionManager.balance.collectAsState()
-    val recentTransactions = TransactionManager.getRecentTransactions()
+    // Get the context and transaction manager
+    val context = LocalContext.current
+    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
+    val scope = rememberCoroutineScope()
+
+    // Observe real data from PersistentTransactionManager
+    val transactions by transactionManager.transactions.collectAsState()
+    val totalIncome by transactionManager.totalIncome.collectAsState()
+    val totalExpense by transactionManager.totalExpense.collectAsState()
+    val balance by transactionManager.balance.collectAsState()
+    val recentTransactions = transactionManager.getRecentTransactions()
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -48,7 +55,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Smart Finance",
+                        "SmartFinance",
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp
                     )
@@ -117,7 +124,13 @@ fun HomeScreen(
                     )
 
                     if (transactions.isNotEmpty()) {
-                        TextButton(onClick = { TransactionManager.clearAll() }) {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    transactionManager.clearAll()
+                                }
+                            }
+                        ) {
                             Text("Clear All", color = Color(0xFF6C63FF))
                         }
                     }
@@ -140,6 +153,8 @@ fun HomeScreen(
         }
     }
 }
+
+// ADD ALL THESE MISSING FUNCTIONS BELOW:
 
 @Composable
 fun ModernBalanceCard(

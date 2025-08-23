@@ -12,14 +12,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.gis.smartfinance.data.TransactionManager
+import androidx.compose.ui.platform.LocalContext
+import com.gis.smartfinance.data.PersistentTransactionManager
+import kotlinx.coroutines.launch
+import com.gis.smartfinance.data.Currency
+import com.gis.smartfinance.data.CurrencyManager
+import androidx.navigation.NavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit
+
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val transactionManager = PersistentTransactionManager.getInstance(context)
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -111,8 +120,10 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        TransactionManager.clearAll()
-                        showClearDialog = false
+                        scope.launch {
+                            transactionManager.clearAll()
+                            showClearDialog = false
+                        }
                     }
                 ) {
                     Text("Clear", color = Color(0xFFE53935))

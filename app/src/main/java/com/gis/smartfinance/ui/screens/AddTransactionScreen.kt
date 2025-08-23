@@ -15,11 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.TransactionManager
+import com.gis.smartfinance.data.PersistentTransactionManager
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
 import kotlinx.coroutines.launch
@@ -35,8 +36,10 @@ fun AddTransactionScreen(
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedCategory by remember { mutableStateOf("") }
-    var showSuccessMessage by remember { mutableStateOf(false) }
 
+    // Get context and transaction manager
+    val context = LocalContext.current
+    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -297,46 +300,72 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Save Button
+            // Save Button - MAKE SURE THIS IS CORRECT
             Button(
                 onClick = {
-                    if (amount.isNotBlank() && description.isNotBlank() && selectedCategory.isNotBlank()) {
-                        // Create and save the transaction
-                        val transaction = FinancialTransaction(
-                            id = UUID.randomUUID().toString(),
-                            amount = amount.toDoubleOrNull() ?: 0.0,
-                            type = selectedType,
-                            category = selectedCategory,
-                            description = description,
-                            date = Date()
-                        )
+                    // Validate inputs
+                    val amountValue = amount.toDoubleOrNull()
+                    if (amountValue != null && amountValue > 0 &&
+                        description.isNotBlank() &&
+                        selectedCategory.isNotBlank()) {
 
-                        // Add to TransactionManager
-                        TransactionManager.addTransaction(transaction)
+                        scope.launch {
+                            try {
+                                // Create the transaction
+                                val transaction = FinancialTransaction(
+                                    id = UUID.randomUUID().toString(),
+                                    amount = amountValue,
+                                    type = selectedType,
+                                    category = selectedCategory,
+                                    description = description.trim(),
+                                    date = Date()
+                                )
 
-                        // Show success message
+                                // Add to PersistentTransactionManager
+                                transactionManager.addTransaction(transaction)
+
+                                // Show success message
+                                snackbarHostState.showSnackbar(
+                                    message = if (selectedType == TransactionType.EXPENSE)
+                                        "Expense of €$amountValue added!"
+                                    else
+                                        "Income of €$amountValue added!",
+                                    duration = SnackbarDuration.Short
+                                )
+
+                                // Navigate back after a short delay
+                                kotlinx.coroutines.delay(500)
+                                onNavigateBack()
+
+                            } catch (e: Exception) {
+                                // Show error message if something goes wrong
+                                snackbarHostState.showSnackbar(
+                                    message = "Error saving transaction",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    } else {
+                        // Show validation error
                         scope.launch {
                             snackbarHostState.showSnackbar(
-                                message = "Transaction added successfully!",
+                                message = when {
+                                    amountValue == null || amountValue <= 0 -> "Please enter a valid amount"
+                                    description.isBlank() -> "Please enter a description"
+                                    selectedCategory.isBlank() -> "Please select a category"
+                                    else -> "Please fill all fields"
+                                },
                                 duration = SnackbarDuration.Short
                             )
-                        }
-
-                        // Navigate back after a short delay
-                        scope.launch {
-                            kotlinx.coroutines.delay(1000)
-                            onNavigateBack()
                         }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = amount.isNotBlank() &&
-                        description.isNotBlank() &&
-                        selectedCategory.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6C63FF)
+                    containerColor = Color(0xFF6C63FF),
+                    disabledContainerColor = Color(0xFF6C63FF).copy(alpha = 0.5f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {

@@ -24,19 +24,26 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.TransactionManager
 import com.gis.smartfinance.data.model.TransactionType
 import kotlin.math.cos
 import kotlin.math.sin
-
+import androidx.compose.ui.platform.LocalContext
+import com.gis.smartfinance.data.PersistentTransactionManager
+import com.gis.smartfinance.data.Currency
+import com.gis.smartfinance.data.CurrencyManager
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     onNavigateBack: () -> Unit
 ) {
-    val transactions by TransactionManager.transactions.collectAsState()
-    val totalIncome by TransactionManager.totalIncome.collectAsState()
-    val totalExpense by TransactionManager.totalExpense.collectAsState()
+    val context = LocalContext.current
+    val transactionManager = PersistentTransactionManager.getInstance(context)
+
+
+
+    val transactions by transactionManager.transactions.collectAsState()
+    val totalIncome by transactionManager.totalIncome.collectAsState()
+    val totalExpense by transactionManager.totalExpense.collectAsState()
 
     // Calculate category breakdowns
     val expensesByCategory = transactions
@@ -200,7 +207,7 @@ fun SummaryCard(
                 color = Color(0xFF757575)
             )
             Text(
-                "€${String.format("%.2f", amount)}",
+                "Text(\"€ \", fontWeight = FontWeight.Bold) }",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color

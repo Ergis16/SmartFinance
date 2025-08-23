@@ -18,17 +18,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.TransactionManager
+import androidx.compose.ui.platform.LocalContext
+import com.gis.smartfinance.data.PersistentTransactionManager
 import com.gis.smartfinance.data.model.TransactionType
+import com.gis.smartfinance.data.Currency
+import com.gis.smartfinance.data.CurrencyManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
     onNavigateBack: () -> Unit
 ) {
-    val transactions by TransactionManager.transactions.collectAsState()
-    val totalExpense by TransactionManager.totalExpense.collectAsState()
-    val totalIncome by TransactionManager.totalIncome.collectAsState()
+    val context = LocalContext.current
+    val transactionManager = PersistentTransactionManager.getInstance(context)
+
+    val transactions by transactionManager.transactions.collectAsState()
+    val totalExpense by transactionManager.totalExpense.collectAsState()
+    val totalIncome by transactionManager.totalIncome.collectAsState()
+
+
 
     // Generate insights based on actual data
     val insights = remember(transactions) {

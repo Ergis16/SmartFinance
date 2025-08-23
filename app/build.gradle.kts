@@ -74,6 +74,8 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.48")
     kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -81,6 +83,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // DataStore for preferences
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // WorkManager for notifications
