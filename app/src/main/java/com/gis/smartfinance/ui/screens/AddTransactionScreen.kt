@@ -32,16 +32,20 @@ import java.util.UUID
 fun AddTransactionScreen(
     onNavigateBack: () -> Unit
 ) {
+    // GET CONTEXT AND MANAGER
+    val context = LocalContext.current
+    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
+
+    // CREATE COROUTINE SCOPE
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // STATE VARIABLES
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedCategory by remember { mutableStateOf("") }
-
-    // Get context and transaction manager
-    val context = LocalContext.current
-    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    var isLoading by remember { mutableStateOf(false) }
 
     val expenseCategories = listOf(
         "Food & Dining" to Icons.Default.Restaurant,
@@ -88,7 +92,7 @@ fun AddTransactionScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Transaction Type Selection with Animation
+            // Transaction Type Selection
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -112,7 +116,7 @@ fun AddTransactionScreen(
                             selected = selectedType == TransactionType.EXPENSE,
                             onClick = {
                                 selectedType = TransactionType.EXPENSE
-                                selectedCategory = "" // Reset category when type changes
+                                selectedCategory = ""
                             },
                             label = {
                                 Text(
@@ -139,7 +143,7 @@ fun AddTransactionScreen(
                             selected = selectedType == TransactionType.INCOME,
                             onClick = {
                                 selectedType = TransactionType.INCOME
-                                selectedCategory = "" // Reset category when type changes
+                                selectedCategory = ""
                             },
                             label = {
                                 Text(
@@ -165,7 +169,7 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Amount Input with Better Design
+            // Amount Input
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -184,7 +188,6 @@ fun AddTransactionScreen(
                     OutlinedTextField(
                         value = amount,
                         onValueChange = { newValue ->
-                            // Only allow numbers and one decimal point
                             if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
                                 amount = newValue
                             }
@@ -234,7 +237,7 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Category Selection with Icons
+            // Category Selection
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -300,61 +303,45 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Save Button - MAKE SURE THIS IS CORRECT
+            // SAVE BUTTON WITH COROUTINE
             Button(
                 onClick = {
-                    // Validate inputs
-                    val amountValue = amount.toDoubleOrNull()
-                    if (amountValue != null && amountValue > 0 &&
-                        description.isNotBlank() &&
-                        selectedCategory.isNotBlank()) {
+                    if (amount.isNotBlank() && description.isNotBlank() && selectedCategory.isNotBlank()) {
+                        isLoading = true
 
+                        val transaction = FinancialTransaction(
+                            id = UUID.randomUUID().toString(),
+                            amount = amount.toDoubleOrNull() ?: 0.0,
+                            type = selectedType,
+                            category = selectedCategory,
+                            description = description,
+                            date = Date()
+                        )
+
+                        // LAUNCH COROUTINE TO SAVE
                         scope.launch {
                             try {
-                                // Create the transaction
-                                val transaction = FinancialTransaction(
-                                    id = UUID.randomUUID().toString(),
-                                    amount = amountValue,
-                                    type = selectedType,
-                                    category = selectedCategory,
-                                    description = description.trim(),
-                                    date = Date()
-                                )
-
-                                // Add to PersistentTransactionManager
+                                // THIS IS THE SUSPEND FUNCTION CALL
                                 transactionManager.addTransaction(transaction)
 
-                                // Show success message
                                 snackbarHostState.showSnackbar(
-                                    message = if (selectedType == TransactionType.EXPENSE)
-                                        "Expense of €$amountValue added!"
-                                    else
-                                        "Income of €$amountValue added!",
+                                    message = "Transaction added successfully!",
                                     duration = SnackbarDuration.Short
                                 )
 
-                                // Navigate back after a short delay
-                                kotlinx.coroutines.delay(500)
                                 onNavigateBack()
-
                             } catch (e: Exception) {
-                                // Show error message if something goes wrong
                                 snackbarHostState.showSnackbar(
-                                    message = "Error saving transaction",
-                                    duration = SnackbarDuration.Short
+                                    message = "Error: ${e.message}",
+                                    duration = SnackbarDuration.Long
                                 )
+                                isLoading = false
                             }
                         }
                     } else {
-                        // Show validation error
                         scope.launch {
                             snackbarHostState.showSnackbar(
-                                message = when {
-                                    amountValue == null || amountValue <= 0 -> "Please enter a valid amount"
-                                    description.isBlank() -> "Please enter a description"
-                                    selectedCategory.isBlank() -> "Please select a category"
-                                    else -> "Please fill all fields"
-                                },
+                                message = "Please fill all fields",
                                 duration = SnackbarDuration.Short
                             )
                         }
@@ -363,23 +350,31 @@ fun AddTransactionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
+                enabled = !isLoading && amount.isNotBlank() &&
+                        description.isNotBlank() && selectedCategory.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6C63FF),
-                    disabledContainerColor = Color(0xFF6C63FF).copy(alpha = 0.5f)
+                    containerColor = Color(0xFF6C63FF)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Save Transaction",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Save Transaction",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
