@@ -27,7 +27,9 @@ import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
 import java.util.*
 import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.roundToInt
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,25 +82,39 @@ fun InsightsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Financial Health Score Card
+                // Data Overview Card - Shows what data we have
                 item {
-                    FinancialHealthCard(
-                        healthScore = insightsAnalysis.healthScore,
-                        scoreBreakdown = insightsAnalysis.scoreBreakdown
+                    DataOverviewCard(
+                        transactionCount = transactions.size,
+                        daysOfData = insightsAnalysis.daysOfData,
+                        dataQuality = insightsAnalysis.dataQuality
                     )
+                }
+
+                // Financial Health Score Card
+                if (insightsAnalysis.daysOfData >= 3) {
+                    item {
+                        FinancialHealthCard(
+                            healthScore = insightsAnalysis.healthScore,
+                            scoreBreakdown = insightsAnalysis.scoreBreakdown,
+                            explanation = insightsAnalysis.scoreExplanation
+                        )
+                    }
                 }
 
                 // Insights Summary Card
-                item {
-                    InsightsSummaryCard(
-                        totalSavingsPotential = insightsAnalysis.savingsPotential,
-                        insightsCount = insightsAnalysis.insights.size,
-                        urgentInsights = insightsAnalysis.insights.count { it.priority == InsightPriority.URGENT }
-                    )
+                if (insightsAnalysis.insights.isNotEmpty()) {
+                    item {
+                        InsightsSummaryCard(
+                            totalSavingsPotential = insightsAnalysis.savingsPotential,
+                            insightsCount = insightsAnalysis.insights.size,
+                            urgentInsights = insightsAnalysis.insights.count { it.priority == InsightPriority.URGENT }
+                        )
+                    }
                 }
 
-                // Spending Patterns Card
-                if (insightsAnalysis.spendingPatterns.isNotEmpty()) {
+                // Spending Patterns Card - Only show if we have enough data
+                if (insightsAnalysis.spendingPatterns.isNotEmpty() && insightsAnalysis.daysOfData >= 7) {
                     item {
                         SpendingPatternsCard(patterns = insightsAnalysis.spendingPatterns)
                     }
@@ -130,9 +146,121 @@ fun InsightsScreen(
 }
 
 @Composable
+fun DataOverviewCard(
+    transactionCount: Int,
+    daysOfData: Int,
+    dataQuality: DataQuality
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when (dataQuality) {
+                DataQuality.EXCELLENT -> Color(0xFF43A047)
+                DataQuality.GOOD -> Color(0xFF66BB6A)
+                DataQuality.LIMITED -> Color(0xFFFFA726)
+                DataQuality.INSUFFICIENT -> Color(0xFFFF9800)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Text(
+                    "Data Overview",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                DataMetric(
+                    label = "Transactions",
+                    value = transactionCount.toString(),
+                    icon = Icons.Default.Receipt
+                )
+                DataMetric(
+                    label = "Days Tracked",
+                    value = daysOfData.toString(),
+                    icon = Icons.Default.CalendarToday
+                )
+                DataMetric(
+                    label = "Data Quality",
+                    value = when (dataQuality) {
+                        DataQuality.EXCELLENT -> "Excellent"
+                        DataQuality.GOOD -> "Good"
+                        DataQuality.LIMITED -> "Limited"
+                        DataQuality.INSUFFICIENT -> "Building"
+                    },
+                    icon = Icons.Default.Assessment
+                )
+            }
+
+            if (dataQuality == DataQuality.INSUFFICIENT || dataQuality == DataQuality.LIMITED) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    when (dataQuality) {
+                        DataQuality.INSUFFICIENT -> "📊 Add more transactions to get detailed insights"
+                        DataQuality.LIMITED -> "📈 Keep tracking for ${7 - daysOfData} more days for full analysis"
+                        else -> ""
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DataMetric(
+    label: String,
+    value: String,
+    icon: ImageVector
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge,
+            color = Color.White,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.8f)
+        )
+    }
+}
+
+@Composable
 fun FinancialHealthCard(
     healthScore: Int,
-    scoreBreakdown: ScoreBreakdown
+    scoreBreakdown: ScoreBreakdown,
+    explanation: String
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -180,18 +308,28 @@ fun FinancialHealthCard(
                     )
                 }
 
-                // Score breakdown
+                // Score breakdown with explanations
                 Column(
                     horizontalAlignment = Alignment.End
                 ) {
-                    ScoreItem("Savings", scoreBreakdown.savingsScore)
-                    ScoreItem("Spending", scoreBreakdown.spendingScore)
-                    ScoreItem("Income", scoreBreakdown.incomeScore)
-                    ScoreItem("Balance", scoreBreakdown.balanceScore)
+                    ScoreItem("Savings", scoreBreakdown.savingsScore, "% of income saved")
+                    ScoreItem("Spending", scoreBreakdown.spendingScore, "% budget control")
+                    ScoreItem("Income", scoreBreakdown.incomeScore, "% stability")
+                    ScoreItem("Balance", scoreBreakdown.balanceScore, "% growth")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Explanation of the score
+            Text(
+                explanation,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             LinearProgressIndicator(
                 progress = healthScore / 100f,
                 modifier = Modifier
@@ -206,22 +344,31 @@ fun FinancialHealthCard(
 }
 
 @Composable
-fun ScoreItem(label: String, score: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+fun ScoreItem(label: String, score: Int, hint: String) {
+    Column(
+        horizontalAlignment = Alignment.End,
         modifier = Modifier.padding(vertical = 2.dp)
     ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "$score%",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
         Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.8f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            "$score%",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
+            hint,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.6f)
         )
     }
 }
@@ -312,12 +459,12 @@ fun InsightsSummaryCard(
             ) {
                 Column {
                     Text(
-                        "Savings Potential",
+                        "Potential Monthly Savings",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White.copy(alpha = 0.9f)
                     )
                     Text(
-                        "€${String.format("%.2f", totalSavingsPotential)}/month",
+                        "€${String.format("%.2f", totalSavingsPotential)}",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -555,7 +702,7 @@ data class Insight(
     val description: String,
     val priority: InsightPriority,
     val priorityColor: Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val icon: ImageVector,
     val iconColor: Color,
     val iconBackground: Color,
     val savingAmount: Double? = null,
@@ -565,7 +712,7 @@ data class Insight(
 data class Recommendation(
     val title: String,
     val description: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val icon: ImageVector,
     val iconColor: Color,
     val backgroundColor: Color,
     val expectedImpact: String? = null
@@ -580,19 +727,25 @@ data class SpendingPattern(
 data class InsightsAnalysis(
     val healthScore: Int,
     val scoreBreakdown: ScoreBreakdown,
+    val scoreExplanation: String,
     val savingsPotential: Double,
     val insights: List<Insight>,
     val recommendations: List<Recommendation>,
-    val spendingPatterns: List<SpendingPattern>
+    val spendingPatterns: List<SpendingPattern>,
+    val daysOfData: Int,
+    val dataQuality: DataQuality
 ) {
     companion object {
         fun empty() = InsightsAnalysis(
             healthScore = 0,
             scoreBreakdown = ScoreBreakdown(0, 0, 0, 0),
+            scoreExplanation = "",
             savingsPotential = 0.0,
             insights = emptyList(),
             recommendations = emptyList(),
-            spendingPatterns = emptyList()
+            spendingPatterns = emptyList(),
+            daysOfData = 0,
+            dataQuality = DataQuality.INSUFFICIENT
         )
     }
 }
@@ -612,7 +765,14 @@ enum class PatternType {
     INCREASING, DECREASING, STABLE, IRREGULAR
 }
 
-// ============== ANALYSIS ENGINE ==============
+enum class DataQuality {
+    INSUFFICIENT,  // < 3 days of data
+    LIMITED,       // 3-7 days of data
+    GOOD,          // 7-30 days of data
+    EXCELLENT      // 30+ days of data
+}
+
+// ============== IMPROVED ANALYSIS ENGINE ==============
 
 fun analyzeTransactions(
     transactions: List<FinancialTransaction>,
@@ -624,86 +784,136 @@ fun analyzeTransactions(
     val recommendations = mutableListOf<Recommendation>()
     val patterns = mutableListOf<SpendingPattern>()
 
-    // Calculate time-based metrics
+    // Calculate data availability metrics
+    val daysOfData = calculateDaysOfData(transactions)
+    val dataQuality = when {
+        daysOfData < 3 -> DataQuality.INSUFFICIENT
+        daysOfData < 7 -> DataQuality.LIMITED
+        daysOfData < 30 -> DataQuality.GOOD
+        else -> DataQuality.EXCELLENT
+    }
+
+    // Don't generate misleading insights with insufficient data
+    if (dataQuality == DataQuality.INSUFFICIENT) {
+        insights.add(Insight(
+            title = "Building Your Financial Profile",
+            description = "Keep adding transactions for the next ${3 - daysOfData} days to unlock personalized insights. I need at least 3 days of data to provide meaningful analysis.",
+            priority = InsightPriority.LOW,
+            priorityColor = Color(0xFF1976D2),
+            icon = Icons.Default.Info,
+            iconColor = Color(0xFF1976D2),
+            iconBackground = Color(0xFFE3F2FD)
+        ))
+
+        // Basic recommendation for new users
+        recommendations.add(Recommendation(
+            title = "Track Everything",
+            description = "Record all your expenses and income for at least a week to get accurate insights.",
+            icon = Icons.Default.Assignment,
+            iconColor = Color(0xFF6C63FF),
+            backgroundColor = Color(0xFFEDE7F6)
+        ))
+
+        return InsightsAnalysis(
+            healthScore = 50, // Neutral score for new users
+            scoreBreakdown = ScoreBreakdown(50, 50, 50, 50),
+            scoreExplanation = "Need more data to calculate accurate health score",
+            savingsPotential = 0.0,
+            insights = insights,
+            recommendations = recommendations,
+            spendingPatterns = emptyList(),
+            daysOfData = daysOfData,
+            dataQuality = dataQuality
+        )
+    }
+
+    // Calculate time-based metrics with proper data checks
     val now = Date()
-    val thirtyDaysAgo = Date(now.time - 30L * 24 * 60 * 60 * 1000)
-    val sevenDaysAgo = Date(now.time - 7L * 24 * 60 * 60 * 1000)
-
-    val recentTransactions = transactions.filter { it.date.after(thirtyDaysAgo) }
-    val lastWeekTransactions = transactions.filter { it.date.after(sevenDaysAgo) }
-
-    // Category analysis
-    val expensesByCategory = recentTransactions
+    val expensesByCategory = transactions
         .filter { it.type == TransactionType.EXPENSE }
         .groupBy { it.category }
         .mapValues { it.value.sumOf { t -> t.amount } }
         .toList()
         .sortedByDescending { it.second }
 
-    val incomeByCategory = recentTransactions
+    val incomeByCategory = transactions
         .filter { it.type == TransactionType.INCOME }
         .groupBy { it.category }
         .mapValues { it.value.sumOf { t -> t.amount } }
 
-    // Time-based spending analysis
-    val weeklyExpenses = calculateWeeklyExpenses(recentTransactions)
-    val dailyAverageExpense = if (recentTransactions.isNotEmpty()) {
-        totalExpense / 30.0
-    } else 0.0
+    // Calculate daily average based on actual days of data
+    val dailyAverageExpense = if (daysOfData > 0) totalExpense / daysOfData else 0.0
+    val dailyAverageIncome = if (daysOfData > 0) totalIncome / daysOfData else 0.0
 
-    // === CALCULATE FINANCIAL HEALTH SCORE ===
+    // Project monthly values based on daily averages
+    val projectedMonthlyExpense = dailyAverageExpense * 30
+    val projectedMonthlyIncome = dailyAverageIncome * 30
+    val projectedMonthlyBalance = projectedMonthlyIncome - projectedMonthlyExpense
+
+    // Calculate Financial Health Score with proper context
     val scoreBreakdown = calculateHealthScore(
-        totalIncome, totalExpense, balance,
-        expensesByCategory, weeklyExpenses
+        projectedMonthlyIncome,
+        projectedMonthlyExpense,
+        balance,
+        expensesByCategory,
+        daysOfData
     )
     val healthScore = (scoreBreakdown.savingsScore + scoreBreakdown.spendingScore +
             scoreBreakdown.incomeScore + scoreBreakdown.balanceScore) / 4
 
-    // === GENERATE INSIGHTS ===
+    val scoreExplanation = when {
+        healthScore >= 80 -> "You're doing great! Your spending is under control and you're saving well."
+        healthScore >= 60 -> "Good financial habits overall. Focus on the highlighted areas for improvement."
+        healthScore >= 40 -> "There's room for improvement. Follow the recommendations to boost your score."
+        else -> "Your finances need attention. Start with the urgent items below."
+    }
 
-    // 1. Savings Rate Analysis
-    if (totalIncome > 0) {
-        val savingsRate = if (balance > 0) balance / totalIncome else 0.0
-        val idealSavingsRate = 0.20 // 20% is ideal
+    // === GENERATE CONTEXTUAL INSIGHTS ===
+
+    // 1. Savings Rate Analysis (with proper projections)
+    if (daysOfData >= 3) {
+        val savingsRate = if (projectedMonthlyIncome > 0) {
+            projectedMonthlyBalance / projectedMonthlyIncome
+        } else 0.0
 
         when {
             savingsRate < 0 -> {
                 insights.add(Insight(
-                    title = "Negative Savings Alert",
-                    description = "You're spending €${String.format("%.2f", abs(balance))} more than you earn. This is unsustainable and requires immediate action.",
+                    title = "Spending Exceeds Income",
+                    description = "Based on ${daysOfData} days of data, you're on track to spend €${String.format("%.2f", abs(projectedMonthlyBalance))} more than you earn monthly.",
                     priority = InsightPriority.URGENT,
                     priorityColor = Color(0xFFD32F2F),
                     icon = Icons.Default.Error,
                     iconColor = Color(0xFFD32F2F),
                     iconBackground = Color(0xFFFFEBEE),
-                    savingAmount = abs(balance) + (totalIncome * 0.1),
+                    savingAmount = abs(projectedMonthlyBalance),
                     actionItems = listOf(
-                        "Review all subscriptions and cancel unused ones",
-                        "Set a strict daily spending limit",
-                        "Consider additional income sources"
+                        "Review your largest expense categories",
+                        "Look for subscriptions to cancel",
+                        "Set a daily spending limit of €${String.format("%.2f", dailyAverageIncome * 0.8)}"
                     )
                 ))
             }
-            savingsRate < 0.05 -> {
+            savingsRate < 0.1 && projectedMonthlyIncome > 0 -> {
                 insights.add(Insight(
                     title = "Low Savings Rate",
-                    description = "You're only saving ${(savingsRate * 100).roundToInt()}% of your income. Financial experts recommend saving at least 20%.",
+                    description = "You're saving only ${(savingsRate * 100).roundToInt()}% of your income. Experts recommend 20%.",
                     priority = InsightPriority.HIGH,
                     priorityColor = Color(0xFFE53935),
                     icon = Icons.Default.Warning,
                     iconColor = Color(0xFFE53935),
                     iconBackground = Color(0xFFFFEBEE),
-                    savingAmount = (idealSavingsRate - savingsRate) * totalIncome,
+                    savingAmount = projectedMonthlyIncome * 0.2 - projectedMonthlyBalance,
                     actionItems = listOf(
-                        "Set up automatic savings transfer",
-                        "Use the 50/30/20 budget rule"
+                        "Set up automatic savings of €${String.format("%.2f", projectedMonthlyIncome * 0.1)}",
+                        "Try the 50/30/20 budget rule"
                     )
                 ))
             }
-            savingsRate >= 0.20 -> {
+            savingsRate >= 0.2 -> {
                 insights.add(Insight(
-                    title = "Excellent Savings Rate!",
-                    description = "You're saving ${(savingsRate * 100).roundToInt()}% of your income. Keep up the great work!",
+                    title = "Excellent Savings!",
+                    description = "You're saving ${(savingsRate * 100).roundToInt()}% of your income. Keep it up!",
                     priority = InsightPriority.LOW,
                     priorityColor = Color(0xFF43A047),
                     icon = Icons.Default.CheckCircle,
@@ -714,129 +924,63 @@ fun analyzeTransactions(
         }
     }
 
-    // 2. Category-Specific Insights
-    expensesByCategory.forEach { (category, amount) ->
-        val percentage = if (totalExpense > 0) (amount / totalExpense * 100) else 0.0
-        val monthlyAmount = amount
+    // 2. Category Analysis (only with sufficient data)
+    if (daysOfData >= 7) {
+        expensesByCategory.forEach { (category, amount) ->
+            val dailyAverage = amount / daysOfData
+            val projectedMonthly = dailyAverage * 30
+            val percentage = if (totalExpense > 0) (amount / totalExpense * 100) else 0.0
 
-        when (category) {
-            "Food & Dining" -> {
-                when {
-                    monthlyAmount > 500 -> {
-                        val avgMealCost = monthlyAmount / 30
+            when (category) {
+                "Food & Dining" -> {
+                    if (projectedMonthly > 400) {
                         insights.add(Insight(
-                            title = "High Dining Expenses",
-                            description = "You're spending €${String.format("%.2f", monthlyAmount)} on dining (€${String.format("%.2f", avgMealCost)}/day). The average person spends €200-300/month.",
-                            priority = InsightPriority.HIGH,
-                            priorityColor = Color(0xFFE53935),
-                            icon = Icons.Default.Restaurant,
-                            iconColor = Color(0xFFE53935),
-                            iconBackground = Color(0xFFFFEBEE),
-                            savingAmount = monthlyAmount * 0.4,
-                            actionItems = listOf(
-                                "Try meal prepping on Sundays",
-                                "Limit dining out to weekends only",
-                                "Use grocery delivery to avoid impulse buys"
-                            )
-                        ))
-
-                        recommendations.add(Recommendation(
-                            title = "Start Cooking at Home",
-                            description = "Based on your dining expenses, cooking at home just 3 more times per week could save you €${String.format("%.2f", monthlyAmount * 0.3)}/month. Try simple recipes like pasta, stir-fries, or one-pot meals.",
-                            icon = Icons.Default.Kitchen,
-                            iconColor = Color(0xFF43A047),
-                            backgroundColor = Color(0xFFE8F5E9),
-                            expectedImpact = "Potential savings: €${String.format("%.2f", monthlyAmount * 0.3)}/month"
-                        ))
-                    }
-                    monthlyAmount > 300 -> {
-                        recommendations.add(Recommendation(
-                            title = "Try Meal Planning",
-                            description = "Plan your meals for the week and grocery shop with a list. This can reduce food expenses by 20-30%.",
-                            icon = Icons.Default.ListAlt,
-                            iconColor = Color(0xFFFFA726),
-                            backgroundColor = Color(0xFFFFF3E0),
-                            expectedImpact = "Save up to €${String.format("%.2f", monthlyAmount * 0.25)}/month"
-                        ))
-                    }
-                }
-            }
-
-            "Transport" -> {
-                when {
-                    monthlyAmount > 400 -> {
-                        insights.add(Insight(
-                            title = "High Transportation Costs",
-                            description = "You're spending €${String.format("%.2f", monthlyAmount)} on transport. Consider carpooling, public transport, or cycling for short trips.",
+                            title = "High Food & Dining Spending",
+                            description = "You're on track to spend €${String.format("%.2f", projectedMonthly)}/month on dining (€${String.format("%.2f", dailyAverage)}/day).",
                             priority = InsightPriority.MEDIUM,
                             priorityColor = Color(0xFFFFA726),
-                            icon = Icons.Default.DirectionsCar,
+                            icon = Icons.Default.Restaurant,
                             iconColor = Color(0xFFFFA726),
                             iconBackground = Color(0xFFFFF3E0),
-                            savingAmount = monthlyAmount * 0.25,
+                            savingAmount = projectedMonthly * 0.3,
                             actionItems = listOf(
-                                "Check if public transport pass is cheaper",
-                                "Consider carpooling apps",
-                                "Walk or bike for trips under 2km"
+                                "Try cooking at home 3 more times per week",
+                                "Meal prep on Sundays",
+                                "Set a dining out budget of €${String.format("%.2f", projectedMonthly * 0.6)}"
                             )
                         ))
                     }
                 }
-            }
 
-            "Shopping" -> {
-                when {
-                    monthlyAmount > 300 -> {
-                        val itemCount = recentTransactions.count {
-                            it.category == "Shopping" && it.type == TransactionType.EXPENSE
-                        }
-                        val avgPerPurchase = monthlyAmount / itemCount.coerceAtLeast(1)
-
+                "Shopping" -> {
+                    if (percentage > 30) {
                         insights.add(Insight(
-                            title = "Shopping Habits Analysis",
-                            description = "You made $itemCount shopping purchases averaging €${String.format("%.2f", avgPerPurchase)} each. Consider the 24-hour rule before buying non-essentials.",
+                            title = "Shopping is Your Biggest Expense",
+                            description = "${percentage.roundToInt()}% of your spending goes to shopping. Consider if all purchases are necessary.",
                             priority = InsightPriority.MEDIUM,
                             priorityColor = Color(0xFFFFA726),
                             icon = Icons.Default.ShoppingBag,
                             iconColor = Color(0xFFFFA726),
                             iconBackground = Color(0xFFFFF3E0),
-                            savingAmount = monthlyAmount * 0.3,
+                            savingAmount = projectedMonthly * 0.25,
                             actionItems = listOf(
                                 "Wait 24 hours before non-essential purchases",
-                                "Unsubscribe from marketing emails",
-                                "Make a wishlist and buy only during sales"
+                                "Unsubscribe from promotional emails",
+                                "Try a no-spend week challenge"
                             )
-                        ))
-
-                        recommendations.add(Recommendation(
-                            title = "Implement No-Spend Days",
-                            description = "Try having 2-3 'no-spend' days per week where you don't make any purchases except essentials.",
-                            icon = Icons.Default.DoNotDisturbOn,
-                            iconColor = Color(0xFF1976D2),
-                            backgroundColor = Color(0xFFE3F2FD),
-                            expectedImpact = "Could reduce shopping expenses by 30%"
                         ))
                     }
                 }
-            }
 
-            "Entertainment" -> {
-                when {
-                    percentage > 15 -> {
-                        insights.add(Insight(
-                            title = "Entertainment Budget",
-                            description = "Entertainment is ${percentage.roundToInt()}% of your expenses. The recommended range is 5-10% of income.",
-                            priority = InsightPriority.MEDIUM,
-                            priorityColor = Color(0xFFFFA726),
-                            icon = Icons.Default.MovieFilter,
-                            iconColor = Color(0xFFFFA726),
-                            iconBackground = Color(0xFFFFF3E0),
-                            savingAmount = monthlyAmount * 0.3,
-                            actionItems = listOf(
-                                "Look for free entertainment options",
-                                "Use streaming services instead of cinema",
-                                "Take advantage of happy hours and discounts"
-                            )
+                "Transport" -> {
+                    if (projectedMonthly > 300) {
+                        recommendations.add(Recommendation(
+                            title = "Optimize Transportation",
+                            description = "Consider carpooling or public transport for some trips to reduce costs.",
+                            icon = Icons.Default.DirectionsBus,
+                            iconColor = Color(0xFF1976D2),
+                            backgroundColor = Color(0xFFE3F2FD),
+                            expectedImpact = "Save up to €${String.format("%.2f", projectedMonthly * 0.2)}/month"
                         ))
                     }
                 }
@@ -844,282 +988,242 @@ fun analyzeTransactions(
         }
     }
 
-    // 3. Spending Velocity Analysis
-    val lastWeekExpense = lastWeekTransactions
-        .filter { it.type == TransactionType.EXPENSE }
-        .sumOf { it.amount }
-    val weeklyAverage = weeklyExpenses.average()
+    // 3. Spending Trend Analysis (requires at least 7 days)
+    if (daysOfData >= 7) {
+        val recentDaysToCheck = minOf(7, daysOfData / 2)
+        val recentDaysAgo = Date(now.time - recentDaysToCheck * 24L * 60 * 60 * 1000)
 
-    when {
-        lastWeekExpense > weeklyAverage * 1.5 -> {
-            patterns.add(SpendingPattern(
-                type = PatternType.INCREASING,
-                description = "Your spending increased by ${((lastWeekExpense / weeklyAverage - 1) * 100).roundToInt()}% this week",
-                impact = "At this rate, you'll overspend by €${String.format("%.2f", (lastWeekExpense - weeklyAverage) * 4)} this month"
-            ))
+        val recentTransactions = transactions.filter { it.date.after(recentDaysAgo) }
+        val olderTransactions = transactions.filter { it.date.before(recentDaysAgo) }
 
+        if (olderTransactions.isNotEmpty()) {
+            val recentDailyAvg = recentTransactions
+                .filter { it.type == TransactionType.EXPENSE }
+                .sumOf { it.amount } / recentDaysToCheck
+
+            val olderDailyAvg = olderTransactions
+                .filter { it.type == TransactionType.EXPENSE }
+                .sumOf { it.amount } / (daysOfData - recentDaysToCheck).coerceAtLeast(1)
+
+            when {
+                recentDailyAvg > olderDailyAvg * 1.2 -> {
+                    patterns.add(SpendingPattern(
+                        type = PatternType.INCREASING,
+                        description = "Your spending has increased ${((recentDailyAvg / olderDailyAvg - 1) * 100).roundToInt()}% recently",
+                        impact = "This trend would add €${String.format("%.2f", (recentDailyAvg - olderDailyAvg) * 30)} to monthly expenses"
+                    ))
+                }
+                recentDailyAvg < olderDailyAvg * 0.8 -> {
+                    patterns.add(SpendingPattern(
+                        type = PatternType.DECREASING,
+                        description = "Great! Your spending decreased ${((1 - recentDailyAvg / olderDailyAvg) * 100).roundToInt()}% recently",
+                        impact = "Keep this up to save €${String.format("%.2f", (olderDailyAvg - recentDailyAvg) * 30)}/month"
+                    ))
+                }
+                else -> {
+                    patterns.add(SpendingPattern(
+                        type = PatternType.STABLE,
+                        description = "Your spending is consistent",
+                        impact = null
+                    ))
+                }
+            }
+        }
+    }
+
+    // 4. Day of Week Analysis (requires at least 14 days for meaningful patterns)
+    if (daysOfData >= 14) {
+        val dayOfWeekSpending = analyzeDayOfWeekSpending(transactions)
+        val highestSpendingDay = dayOfWeekSpending.maxByOrNull { it.value }
+
+        if (highestSpendingDay != null && highestSpendingDay.value > dailyAverageExpense * 1.5) {
             insights.add(Insight(
-                title = "Spending Spike Detected",
-                description = "You spent €${String.format("%.2f", lastWeekExpense)} this week, ${((lastWeekExpense / weeklyAverage - 1) * 100).roundToInt()}% above your average.",
-                priority = InsightPriority.HIGH,
-                priorityColor = Color(0xFFE53935),
-                icon = Icons.Default.TrendingUp,
-                iconColor = Color(0xFFE53935),
-                iconBackground = Color(0xFFFFEBEE),
+                title = "${getDayName(highestSpendingDay.key)} Spending Pattern",
+                description = "You tend to spend €${String.format("%.2f", highestSpendingDay.value)} on ${getDayName(highestSpendingDay.key)}s, ${((highestSpendingDay.value / dailyAverageExpense - 1) * 100).roundToInt()}% above your daily average.",
+                priority = InsightPriority.LOW,
+                priorityColor = Color(0xFF1976D2),
+                icon = Icons.Default.CalendarToday,
+                iconColor = Color(0xFF1976D2),
+                iconBackground = Color(0xFFE3F2FD),
+                savingAmount = (highestSpendingDay.value - dailyAverageExpense) * 4,
                 actionItems = listOf(
-                    "Review this week's transactions",
-                    "Set a weekly spending limit",
-                    "Use cash for discretionary spending"
+                    "Plan ${getDayName(highestSpendingDay.key)} activities in advance",
+                    "Set a specific ${getDayName(highestSpendingDay.key)} budget"
                 )
             ))
         }
-        lastWeekExpense < weeklyAverage * 0.7 -> {
-            patterns.add(SpendingPattern(
-                type = PatternType.DECREASING,
-                description = "Great job! Your spending decreased by ${((1 - lastWeekExpense / weeklyAverage) * 100).roundToInt()}% this week",
-                impact = "Keep this up to save an extra €${String.format("%.2f", (weeklyAverage - lastWeekExpense) * 4)} this month"
+    }
+
+    // 5. General Recommendations based on data quality
+    when (dataQuality) {
+        DataQuality.LIMITED -> {
+            recommendations.add(Recommendation(
+                title = "Keep Tracking",
+                description = "You're building good habits! Continue tracking for ${7 - daysOfData} more days to unlock detailed spending patterns.",
+                icon = Icons.Default.TrendingUp,
+                iconColor = Color(0xFF43A047),
+                backgroundColor = Color(0xFFE8F5E9)
             ))
         }
-        else -> {
-            patterns.add(SpendingPattern(
-                type = PatternType.STABLE,
-                description = "Your spending is consistent with your average",
-                impact = null
-            ))
-        }
-    }
-
-    // 4. Day of Week Analysis
-    val dayOfWeekSpending = analyzeDayOfWeekSpending(recentTransactions)
-    val highestSpendingDay = dayOfWeekSpending.maxByOrNull { it.value }
-    if (highestSpendingDay != null && highestSpendingDay.value > dailyAverageExpense * 2) {
-        insights.add(Insight(
-            title = "${getDayName(highestSpendingDay.key)} Spending Pattern",
-            description = "You spend an average of €${String.format("%.2f", highestSpendingDay.value)} on ${getDayName(highestSpendingDay.key)}s, which is ${((highestSpendingDay.value / dailyAverageExpense - 1) * 100).roundToInt()}% above your daily average.",
-            priority = InsightPriority.MEDIUM,
-            priorityColor = Color(0xFFFFA726),
-            icon = Icons.Default.CalendarToday,
-            iconColor = Color(0xFFFFA726),
-            iconBackground = Color(0xFFFFF3E0),
-            savingAmount = (highestSpendingDay.value - dailyAverageExpense) * 4,
-            actionItems = listOf(
-                "Plan activities for ${getDayName(highestSpendingDay.key)}s in advance",
-                "Set a specific budget for ${getDayName(highestSpendingDay.key)}s"
-            )
-        ))
-    }
-
-    // 5. Subscription Detection
-    val recurringExpenses = detectRecurringExpenses(transactions)
-    if (recurringExpenses.isNotEmpty()) {
-        val totalRecurring = recurringExpenses.sumOf { it.amount }
-        insights.add(Insight(
-            title = "Recurring Expenses Detected",
-            description = "You have approximately ${recurringExpenses.size} recurring expenses totaling €${String.format("%.2f", totalRecurring)}/month. Review if all subscriptions are being used.",
-            priority = InsightPriority.MEDIUM,
-            priorityColor = Color(0xFF1976D2),
-            icon = Icons.Default.Repeat,
-            iconColor = Color(0xFF1976D2),
-            iconBackground = Color(0xFFE3F2FD),
-            savingAmount = totalRecurring * 0.2,
-            actionItems = listOf(
-                "Audit all subscriptions",
-                "Cancel unused services",
-                "Share family plans where possible"
-            )
-        ))
-
-        recommendations.add(Recommendation(
-            title = "Subscription Audit Time",
-            description = "Review your subscriptions - studies show people save 20-30% by canceling forgotten subscriptions.",
-            icon = Icons.Default.Checklist,
-            iconColor = Color(0xFF6C63FF),
-            backgroundColor = Color(0xFFEDE7F6),
-            expectedImpact = "Average savings: €${String.format("%.2f", totalRecurring * 0.25)}/month"
-        ))
-    }
-
-    // 6. Income Stability Check
-    val incomeVariability = calculateIncomeVariability(recentTransactions)
-    if (incomeVariability > 0.3 && totalIncome > 0) {
-        insights.add(Insight(
-            title = "Variable Income Detected",
-            description = "Your income varies by ${(incomeVariability * 100).roundToInt()}%. Consider building a larger emergency fund (4-6 months expenses).",
-            priority = InsightPriority.MEDIUM,
-            priorityColor = Color(0xFF1976D2),
-            icon = Icons.Default.ShowChart,
-            iconColor = Color(0xFF1976D2),
-            iconBackground = Color(0xFFE3F2FD),
-            actionItems = listOf(
-                "Build emergency fund to 6 months expenses",
-                "Budget based on lowest income month",
-                "Look for additional stable income sources"
-            )
-        ))
-    }
-
-    // 7. Zero-Day Analysis
-    val zeroDays = countZeroSpendDays(recentTransactions)
-    if (zeroDays < 5) {
-        recommendations.add(Recommendation(
-            title = "Try No-Spend Days",
-            description = "You had only $zeroDays days without spending last month. Try to have at least 8-10 no-spend days per month.",
-            icon = Icons.Default.Savings,
-            iconColor = Color(0xFF43A047),
-            backgroundColor = Color(0xFFE8F5E9),
-            expectedImpact = "Could save €${String.format("%.2f", dailyAverageExpense * 5)}/month"
-        ))
-    }
-
-    // 8. Smart Recommendations based on patterns
-    if (expensesByCategory.isNotEmpty()) {
-        val topCategory = expensesByCategory.first()
-
-        // Specific recommendations based on top spending category
-        when (topCategory.first) {
-            "Food & Dining" -> {
+        DataQuality.GOOD -> {
+            if (expensesByCategory.isNotEmpty()) {
+                val topCategory = expensesByCategory.first()
                 recommendations.add(Recommendation(
-                    title = "Meal Prep Sunday",
-                    description = "Dedicate 2 hours on Sunday to meal prep. This can reduce weekday dining expenses by 60%.",
-                    icon = Icons.Default.FoodBank,
-                    iconColor = Color(0xFF43A047),
-                    backgroundColor = Color(0xFFE8F5E9),
-                    expectedImpact = "Save 3-4 hours and €50-80 per week"
-                ))
-            }
-            "Transport" -> {
-                recommendations.add(Recommendation(
-                    title = "Optimize Your Commute",
-                    description = "Consider carpooling 2-3 days a week or using public transport for longer trips.",
-                    icon = Icons.Default.DirectionsBus,
-                    iconColor = Color(0xFF1976D2),
-                    backgroundColor = Color(0xFFE3F2FD),
-                    expectedImpact = "Reduce transport costs by 30%"
-                ))
-            }
-            "Shopping" -> {
-                recommendations.add(Recommendation(
-                    title = "The 30-Day List",
-                    description = "Write down items you want to buy and wait 30 days. You'll find you don't actually want 80% of them.",
-                    icon = Icons.Default.Timer,
+                    title = "Focus on ${topCategory.first}",
+                    description = "This is your biggest expense category. Small changes here can have big impact.",
+                    icon = Icons.Default.Flag,
                     iconColor = Color(0xFF6C63FF),
                     backgroundColor = Color(0xFFEDE7F6),
-                    expectedImpact = "Reduce impulse purchases by 70%"
+                    expectedImpact = "Potential savings: €${String.format("%.2f", (topCategory.second / daysOfData * 30 * 0.2))}/month"
                 ))
             }
         }
+        DataQuality.EXCELLENT -> {
+            // Advanced recommendations for users with lots of data
+            val avgTransaction = totalExpense / transactions.filter { it.type == TransactionType.EXPENSE }.size
+            if (avgTransaction < 10) {
+                insights.add(Insight(
+                    title = "Many Small Transactions",
+                    description = "Your average transaction is only €${String.format("%.2f", avgTransaction)}. These small expenses add up!",
+                    priority = InsightPriority.MEDIUM,
+                    priorityColor = Color(0xFFFFA726),
+                    icon = Icons.Default.Receipt,
+                    iconColor = Color(0xFFFFA726),
+                    iconBackground = Color(0xFFFFF3E0),
+                    actionItems = listOf(
+                        "Review small daily purchases",
+                        "Consider if each small expense is necessary"
+                    )
+                ))
+            }
+        }
+        else -> {}
     }
 
-    // 9. Savings Goals Recommendation
-    if (balance > 0 && totalIncome > 0) {
-        val monthsOfExpenses = balance / (totalExpense / 30 * 30)
+    // 6. Emergency Fund Check (only after 7+ days)
+    if (daysOfData >= 7 && balance >= 0) {
+        val monthsOfExpenses = if (projectedMonthlyExpense > 0) {
+            balance / projectedMonthlyExpense
+        } else 0.0
+
         when {
             monthsOfExpenses < 1 -> {
                 recommendations.add(Recommendation(
-                    title = "Build Emergency Fund",
-                    description = "You have less than 1 month of expenses saved. Aim for at least 3 months as a safety net.",
+                    title = "Build an Emergency Fund",
+                    description = "You have less than 1 month of expenses saved. Aim for at least 3 months.",
                     icon = Icons.Default.Shield,
                     iconColor = Color(0xFFD32F2F),
                     backgroundColor = Color(0xFFFFEBEE),
-                    expectedImpact = "Financial security and peace of mind"
+                    expectedImpact = "Financial security in emergencies"
                 ))
             }
-            monthsOfExpenses < 3 -> {
+            monthsOfExpenses in 1.0..3.0 -> {
                 recommendations.add(Recommendation(
                     title = "Grow Your Safety Net",
                     description = "You have ${String.format("%.1f", monthsOfExpenses)} months of expenses saved. Work towards 3-6 months.",
-                    icon = Icons.Default.TrendingUp,
+                    icon = Icons.Default.Security,
                     iconColor = Color(0xFFFFA726),
                     backgroundColor = Color(0xFFFFF3E0)
                 ))
             }
+            monthsOfExpenses >= 3 -> {
+                insights.add(Insight(
+                    title = "Strong Emergency Fund!",
+                    description = "You have ${String.format("%.1f", monthsOfExpenses)} months of expenses saved. Great job!",
+                    priority = InsightPriority.LOW,
+                    priorityColor = Color(0xFF43A047),
+                    icon = Icons.Default.Verified,
+                    iconColor = Color(0xFF43A047),
+                    iconBackground = Color(0xFFE8F5E9)
+                ))
+            }
         }
     }
 
-    // Calculate total savings potential
+    // Calculate realistic savings potential
     val savingsPotential = insights.mapNotNull { it.savingAmount }.sum()
 
     return InsightsAnalysis(
         healthScore = healthScore,
         scoreBreakdown = scoreBreakdown,
+        scoreExplanation = scoreExplanation,
         savingsPotential = savingsPotential,
         insights = insights.sortedByDescending { it.priority.ordinal },
         recommendations = recommendations,
-        spendingPatterns = patterns
+        spendingPatterns = patterns,
+        daysOfData = daysOfData,
+        dataQuality = dataQuality
     )
 }
 
 // ============== HELPER FUNCTIONS ==============
 
-fun calculateHealthScore(
-    income: Double,
-    expenses: Double,
-    balance: Double,
-    expensesByCategory: List<Pair<String, Double>>,
-    weeklyExpenses: List<Double>
-): ScoreBreakdown {
-    // Savings Score (0-100)
-    val savingsRate = if (income > 0) balance / income else 0.0
-    val savingsScore = when {
-        savingsRate >= 0.20 -> 100
-        savingsRate >= 0.10 -> 70 + (savingsRate - 0.10) * 300
-        savingsRate >= 0 -> 40 + savingsRate * 300
-        else -> 0
-    }.toInt().coerceIn(0, 100)
+fun calculateDaysOfData(transactions: List<FinancialTransaction>): Int {
+    if (transactions.isEmpty()) return 0
 
-    // Spending Score (0-100)
-    val spendingRatio = if (income > 0) expenses / income else 1.0
-    val spendingScore = when {
-        spendingRatio <= 0.70 -> 100
-        spendingRatio <= 0.85 -> 70 + ((0.85 - spendingRatio) / 0.15 * 30)
-        spendingRatio <= 1.0 -> 40 + ((1.0 - spendingRatio) / 0.15 * 30)
-        else -> (20 / spendingRatio)
-    }.toInt().coerceIn(0, 100)
+    val oldestTransaction = transactions.minByOrNull { it.date }?.date ?: return 0
+    val newestTransaction = transactions.maxByOrNull { it.date }?.date ?: return 0
 
-    // Income Score (0-100)
-    val incomeScore = when {
-        income >= 3000 -> 100
-        income >= 2000 -> 70 + ((income - 2000) / 1000 * 30)
-        income >= 1000 -> 40 + ((income - 1000) / 1000 * 30)
-        income > 0 -> (income / 1000 * 40)
-        else -> 0
-    }.toInt().coerceIn(0, 100)
+    val diffInMillis = newestTransaction.time - oldestTransaction.time
+    val days = TimeUnit.MILLISECONDS.toDays(diffInMillis).toInt() + 1 // +1 to include both days
 
-    // Balance Score (0-100)
-    val monthsOfExpenses = if (expenses > 0) balance / expenses else 0.0
-    val balanceScore = when {
-        monthsOfExpenses >= 6 -> 100
-        monthsOfExpenses >= 3 -> 70 + ((monthsOfExpenses - 3) / 3 * 30)
-        monthsOfExpenses >= 1 -> 40 + ((monthsOfExpenses - 1) / 2 * 30)
-        monthsOfExpenses >= 0 -> (monthsOfExpenses * 40)
-        else -> 0
-    }.toInt().coerceIn(0, 100)
-
-    return ScoreBreakdown(savingsScore, spendingScore, incomeScore, balanceScore)
+    return days
 }
 
-fun calculateWeeklyExpenses(transactions: List<FinancialTransaction>): List<Double> {
-    val calendar = Calendar.getInstance()
-    val weeklyExpenses = mutableListOf<Double>()
-
-    for (week in 0..3) {
-        calendar.time = Date()
-        calendar.add(Calendar.WEEK_OF_YEAR, -week)
-        val weekStart = calendar.time
-        calendar.add(Calendar.DAY_OF_YEAR, -7)
-        val weekEnd = calendar.time
-
-        val weekExpense = transactions
-            .filter {
-                it.type == TransactionType.EXPENSE &&
-                        it.date.before(weekStart) &&
-                        it.date.after(weekEnd)
-            }
-            .sumOf { it.amount }
-        weeklyExpenses.add(weekExpense)
+fun calculateHealthScore(
+    monthlyIncome: Double,
+    monthlyExpenses: Double,
+    currentBalance: Double,
+    expensesByCategory: List<Pair<String, Double>>,
+    daysOfData: Int
+): ScoreBreakdown {
+    // Adjust scoring based on data availability
+    val dataMultiplier = when {
+        daysOfData < 7 -> 0.7
+        daysOfData < 30 -> 0.85
+        else -> 1.0
     }
 
-    return weeklyExpenses
+    // Savings Score (0-100)
+    val savingsRate = if (monthlyIncome > 0) {
+        (monthlyIncome - monthlyExpenses) / monthlyIncome
+    } else 0.0
+
+    val savingsScore = (when {
+        savingsRate >= 0.20 -> 100.0
+        savingsRate >= 0.10 -> 70.0 + (savingsRate - 0.10) * 300
+        savingsRate >= 0 -> 40.0 + savingsRate * 300
+        else -> 0.0
+    } * dataMultiplier).toInt().coerceIn(0, 100)
+
+    // Spending Score (0-100)
+    val spendingRatio = if (monthlyIncome > 0) monthlyExpenses / monthlyIncome else 1.0
+    val spendingScore = (when {
+        spendingRatio <= 0.70 -> 100.0
+        spendingRatio <= 0.85 -> 70.0 + ((0.85 - spendingRatio) / 0.15 * 30)
+        spendingRatio <= 1.0 -> 40.0 + ((1.0 - spendingRatio) / 0.15 * 30)
+        else -> 20.0
+    } * dataMultiplier).toInt().coerceIn(0, 100)
+
+    // Income Score (simplified for better understanding)
+    val incomeScore = when {
+        monthlyIncome <= 0 -> 0
+        monthlyIncome < 1000 -> (monthlyIncome / 1000 * 50).toInt()
+        monthlyIncome < 3000 -> 50 + ((monthlyIncome - 1000) / 2000 * 30).toInt()
+        else -> 80 + kotlin.math.min(20.0, (monthlyIncome - 3000) / 1000 * 5).toInt()
+    }.coerceIn(0, 100)
+
+    // Balance Score (emergency fund perspective)
+    val monthsOfExpenses = if (monthlyExpenses > 0) currentBalance / monthlyExpenses else 0.0
+    val balanceScore = (when {
+        monthsOfExpenses >= 6 -> 100.0
+        monthsOfExpenses >= 3 -> 70.0 + ((monthsOfExpenses - 3) / 3 * 30)
+        monthsOfExpenses >= 1 -> 40.0 + ((monthsOfExpenses - 1) / 2 * 30)
+        monthsOfExpenses >= 0 -> monthsOfExpenses * 40
+        else -> 0.0
+    } * dataMultiplier).toInt().coerceIn(0, 100)
+
+    return ScoreBreakdown(savingsScore, spendingScore, incomeScore, balanceScore)
 }
 
 fun analyzeDayOfWeekSpending(transactions: List<FinancialTransaction>): Map<Int, Double> {
@@ -1134,7 +1238,10 @@ fun analyzeDayOfWeekSpending(transactions: List<FinancialTransaction>): Map<Int,
             daySpending.getOrPut(dayOfWeek) { mutableListOf() }.add(transaction.amount)
         }
 
-    return daySpending.mapValues { it.value.average() }
+    // Only return averages if we have enough data points
+    return daySpending
+        .filter { it.value.size >= 2 } // Need at least 2 occurrences
+        .mapValues { it.value.average() }
 }
 
 fun getDayName(dayOfWeek: Int): String {
@@ -1148,50 +1255,4 @@ fun getDayName(dayOfWeek: Int): String {
         Calendar.SATURDAY -> "Saturday"
         else -> "Unknown"
     }
-}
-
-fun detectRecurringExpenses(transactions: List<FinancialTransaction>): List<FinancialTransaction> {
-    val expenses = transactions.filter { it.type == TransactionType.EXPENSE }
-    val grouped = expenses.groupBy { it.description.lowercase() }
-
-    return grouped
-        .filter { it.value.size >= 2 }
-        .mapNotNull { (_, trans) ->
-            if (trans.size >= 2) {
-                val amounts = trans.map { it.amount }
-                val avgAmount = amounts.average()
-                val variance = amounts.map { abs(it - avgAmount) }.average()
-                if (variance < avgAmount * 0.1) {
-                    trans.first()
-                } else null
-            } else null
-        }
-}
-
-fun calculateIncomeVariability(transactions: List<FinancialTransaction>): Double {
-    val incomes = transactions
-        .filter { it.type == TransactionType.INCOME }
-        .map { it.amount }
-
-    if (incomes.size < 2) return 0.0
-
-    val average = incomes.average()
-    val variance = incomes.map { abs(it - average) }.average()
-
-    return if (average > 0) variance / average else 0.0
-}
-
-fun countZeroSpendDays(transactions: List<FinancialTransaction>): Int {
-    val calendar = Calendar.getInstance()
-    val spendDays = mutableSetOf<String>()
-
-    transactions
-        .filter { it.type == TransactionType.EXPENSE }
-        .forEach { transaction ->
-            calendar.time = transaction.date
-            val dayKey = "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.DAY_OF_YEAR)}"
-            spendDays.add(dayKey)
-        }
-
-    return 30 - spendDays.size
 }
