@@ -24,10 +24,19 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gis.smartfinance.ui.navigation.Screen
 import com.gis.smartfinance.ui.screens.*
 import com.gis.smartfinance.ui.theme.SmartFinanceTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 
+/**
+ * Main Activity - Entry point of the app
+ *
+ * @AndroidEntryPoint: Required for Hilt dependency injection
+ * Enables ViewModels to receive injected dependencies
+ */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,9 +97,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Color(0xFF6C63FF)
-            ),
+            .background(Color(0xFF6C63FF)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -156,7 +163,7 @@ fun SmartFinanceApp() {
     ) {
         NavHost(
             navController = navController,
-            startDestination = "home",
+            startDestination = Screen.Home.route,
             enterTransition = {
                 slideIntoContainer(
                     AnimatedContentTransitionScope.SlideDirection.Left,
@@ -182,21 +189,26 @@ fun SmartFinanceApp() {
                 )
             }
         ) {
-            composable("home") {
+            // Home Screen
+            composable(Screen.Home.route) {
                 HomeScreen(
                     onNavigateToAddTransaction = {
-                        navController.navigate("add_transaction")
+                        navController.navigate(Screen.AddTransaction.route)
                     },
                     onNavigateToInsights = {
-                        navController.navigate("insights")
+                        navController.navigate(Screen.Insights.route)
                     },
                     onNavigateToAnalytics = {
-                        navController.navigate("analytics")
+                        navController.navigate(Screen.Analytics.route)
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }
 
-            composable("add_transaction") {
+            // Add Transaction Screen
+            composable(Screen.AddTransaction.route) {
                 AddTransactionScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -204,7 +216,8 @@ fun SmartFinanceApp() {
                 )
             }
 
-            composable("insights") {
+            // Insights Screen
+            composable(Screen.Insights.route) {
                 InsightsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -212,7 +225,8 @@ fun SmartFinanceApp() {
                 )
             }
 
-            composable("analytics") {
+            // Analytics Screen
+            composable(Screen.Analytics.route) {
                 AnalyticsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -220,7 +234,8 @@ fun SmartFinanceApp() {
                 )
             }
 
-            composable("settings") {
+            // Settings Screen
+            composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -230,3 +245,13 @@ fun SmartFinanceApp() {
         }
     }
 }
+
+/**
+ * WHAT CHANGED:
+ *
+ * 1. Added @AndroidEntryPoint annotation (CRITICAL for Hilt)
+ * 2. Updated navigation to use Screen sealed class
+ * 3. Added Settings screen route
+ * 4. HomeScreen now has onNavigateToSettings parameter
+ * 5. All screens use proper navigation
+ */

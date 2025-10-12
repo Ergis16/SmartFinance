@@ -1,6 +1,5 @@
 package com.gis.smartfinance.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,27 +9,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.gis.smartfinance.data.PersistentTransactionManager
-import kotlinx.coroutines.launch
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.gis.smartfinance.ui.viewmodel.SettingsViewModel
 
+/**
+ * Settings Screen
+ * Provides app settings and data management options
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    // GET CONTEXT AND MANAGER
-    val context = LocalContext.current
-    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
-
-    // CREATE COROUTINE SCOPE
-    val scope = rememberCoroutineScope()
-
-    // STATE VARIABLES
     var showClearDialog by remember { mutableStateOf(false) }
-    var isClearing by remember { mutableStateOf(false) }
+    val isClearing by viewModel.isClearing.collectAsState()
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -73,7 +69,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Clear All Data
+                    // Clear All Data Button
                     SettingItem(
                         icon = Icons.Default.DeleteForever,
                         title = "Clear All Data",
@@ -106,7 +102,7 @@ fun SettingsScreen(
                         icon = Icons.Default.Info,
                         title = "Version",
                         subtitle = "1.0.0",
-                        onClick = { },
+                        onClick = { /* Do nothing */ },
                         iconColor = Color(0xFF6C63FF),
                         enabled = true
                     )
@@ -115,30 +111,24 @@ fun SettingsScreen(
         }
     }
 
-    // CLEAR DATA CONFIRMATION DIALOG
+    // Clear Data Confirmation Dialog
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = {
                 if (!isClearing) showClearDialog = false
             },
             title = { Text("Clear All Data?") },
-            text = { Text("This will remove all your transactions. This action cannot be undone.") },
+            text = {
+                Text(
+                    "This will permanently remove all your transactions. " +
+                            "This action cannot be undone."
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        isClearing = true
-
-                        // LAUNCH COROUTINE TO CLEAR DATA
-                        scope.launch {
-                            try {
-                                // THIS IS THE SUSPEND FUNCTION CALL
-                                transactionManager.clearAll()
-                                showClearDialog = false
-                            } catch (e: Exception) {
-                                // Handle error if needed
-                            } finally {
-                                isClearing = false
-                            }
+                        viewModel.clearAllData {
+                            showClearDialog = false
                         }
                     },
                     enabled = !isClearing
@@ -146,7 +136,8 @@ fun SettingsScreen(
                     if (isClearing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
+                            color = Color(0xFFE53935)
                         )
                     } else {
                         Text("Clear", color = Color(0xFFE53935))
@@ -165,10 +156,13 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * Reusable Setting Item Component
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -212,3 +206,21 @@ fun SettingItem(
         }
     }
 }
+
+/**
+ * WHAT THIS SCREEN DOES:
+ *
+ * Features:
+ * - Clear all transactions (with confirmation)
+ * - Shows app version
+ * - Uses ViewModel for data operations
+ * - Loading state during clear operation
+ * - Can't spam clear button (disabled during operation)
+ *
+ * Future additions:
+ * - Currency selection
+ * - Theme selection (Dark mode)
+ * - Export data
+ * - Backup/restore
+ * - Notification settings
+ */

@@ -18,36 +18,33 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.PersistentTransactionManager
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
-import kotlinx.coroutines.launch
+import com.gis.smartfinance.ui.viewmodel.HomeViewModel
+import com.gis.smartfinance.ui.viewmodel.HomeUiState
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Home Screen - Main dashboard of the app
+ * Now uses MVVM architecture with ViewModel
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToInsights: () -> Unit,
-    onNavigateToAnalytics: () -> Unit
+    onNavigateToAnalytics: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
-    // Get the context and transaction manager
-    val context = LocalContext.current
-    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
-    val scope = rememberCoroutineScope()
-
-    // Observe real data from PersistentTransactionManager
-    val transactions by transactionManager.transactions.collectAsState()
-    val totalIncome by transactionManager.totalIncome.collectAsState()
-    val totalExpense by transactionManager.totalExpense.collectAsState()
-    val balance by transactionManager.balance.collectAsState()
-    val recentTransactions = transactionManager.getRecentTransactions()
+    // Collect UI state from ViewModel
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
@@ -59,6 +56,16 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp
                     )
+                },
+                actions = {
+                    // Settings button
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color(0xFF1A1A2E)
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
@@ -84,77 +91,121 @@ fun HomeScreen(
             }
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF5F7FA)),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Modern Balance Card with Gradient
-            item {
-                ModernBalanceCard(
-                    totalIncome = totalIncome,
-                    totalExpense = totalExpense,
-                    balance = balance
-                )
-            }
-
-            // Quick Actions with better design
-            item {
-                ModernQuickActions(
-                    onNavigateToInsights = onNavigateToInsights,
-                    onNavigateToAnalytics = onNavigateToAnalytics
-                )
-            }
-
-            // Recent Transactions Section
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        when (val state = uiState) {
+            is HomeUiState.Loading -> {
+                // Loading state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "Recent Transactions",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF6C63FF)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Loading...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                }
+            }
 
-                    if (transactions.isNotEmpty()) {
-                        TextButton(
-                            onClick = {
-                                scope.launch {
-                                    transactionManager.clearAll()
-                                }
-                            }
-                        ) {
-                            Text("Clear All", color = Color(0xFF6C63FF))
+            is HomeUiState.Success -> {
+                // Success state - show content
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .background(Color(0xFFF5F7FA)),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Modern Balance Card with Gradient
+                    item {
+                        ModernBalanceCard(
+                            totalIncome = state.totalIncome,
+                            totalExpense = state.totalExpense,
+                            balance = state.balance
+                        )
+                    }
+
+                    // Quick Actions with better design
+                    item {
+                        ModernQuickActions(
+                            onNavigateToInsights = onNavigateToInsights,
+                            onNavigateToAnalytics = onNavigateToAnalytics
+                        )
+                    }
+
+                    // Recent Transactions Section
+                    item {
+                        Text(
+                            "Recent Transactions",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A2E)
+                        )
+                    }
+
+                    // Show transactions or empty state
+                    if (state.recentTransactions.isEmpty()) {
+                        item {
+                            EmptyStateCard()
+                        }
+                    } else {
+                        items(
+                            items = state.recentTransactions,
+                            key = { it.id }
+                        ) { transaction ->
+                            AnimatedTransactionItem(transaction = transaction)
                         }
                     }
                 }
             }
 
-            // Show transactions or empty state
-            if (recentTransactions.isEmpty()) {
-                item {
-                    EmptyStateCard()
-                }
-            } else {
-                items(
-                    items = recentTransactions,
-                    key = { it.id }
-                ) { transaction ->
-                    AnimatedTransactionItem(transaction = transaction)
+            is HomeUiState.Error -> {
+                // Error state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color(0xFFE53935)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Something went wrong",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF757575)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            state.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF9E9E9E),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
     }
 }
-
-// ADD ALL THESE MISSING FUNCTIONS BELOW:
 
 @Composable
 fun ModernBalanceCard(
@@ -381,7 +432,7 @@ fun AnimatedTransactionItem(transaction: FinancialTransaction) {
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = when(transaction.category) {
+                            imageVector = when (transaction.category) {
                                 "Food & Dining" -> Icons.Default.Restaurant
                                 "Transport" -> Icons.Default.DirectionsCar
                                 "Shopping" -> Icons.Default.ShoppingBag
@@ -473,3 +524,20 @@ fun formatDate(date: Date): String {
     val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     return formatter.format(date)
 }
+
+/**
+ * WHAT CHANGED:
+ *
+ * Before:
+ * - Direct access to PersistentTransactionManager
+ * - Manual state management
+ * - No error handling
+ * - No loading states
+ *
+ * After:
+ * - Uses HomeViewModel with Hilt injection
+ * - Observes UI state (Loading/Success/Error)
+ * - Settings button in TopAppBar
+ * - Clean separation of concerns
+ * - Proper error handling
+ */

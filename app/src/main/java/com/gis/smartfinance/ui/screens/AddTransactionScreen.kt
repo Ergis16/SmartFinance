@@ -1,7 +1,5 @@
 package com.gis.smartfinance.ui.screens
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,41 +9,30 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gis.smartfinance.data.PersistentTransactionManager
-import com.gis.smartfinance.data.model.FinancialTransaction
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.TransactionType
+import com.gis.smartfinance.ui.viewmodel.AddTransactionViewModel
 import kotlinx.coroutines.launch
-import java.util.Date
-import java.util.UUID
 
+/**
+ * Add Transaction Screen - Now with ViewModel!
+ * All state and logic moved to AddTransactionViewModel
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
-    // GET CONTEXT AND MANAGER
-    val context = LocalContext.current
-    val transactionManager = remember { PersistentTransactionManager.getInstance(context) }
-
-    // CREATE COROUTINE SCOPE
-    val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // STATE VARIABLES
-    var amount by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    var selectedCategory by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val expenseCategories = listOf(
         "Food & Dining" to Icons.Default.Restaurant,
@@ -113,15 +100,12 @@ fun AddTransactionScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         FilterChip(
-                            selected = selectedType == TransactionType.EXPENSE,
-                            onClick = {
-                                selectedType = TransactionType.EXPENSE
-                                selectedCategory = ""
-                            },
+                            selected = uiState.type == TransactionType.EXPENSE,
+                            onClick = { viewModel.updateType(TransactionType.EXPENSE) },
                             label = {
                                 Text(
                                     "Expense",
-                                    fontWeight = if (selectedType == TransactionType.EXPENSE)
+                                    fontWeight = if (uiState.type == TransactionType.EXPENSE)
                                         FontWeight.Bold else FontWeight.Normal
                                 )
                             },
@@ -140,15 +124,12 @@ fun AddTransactionScreen(
                         )
 
                         FilterChip(
-                            selected = selectedType == TransactionType.INCOME,
-                            onClick = {
-                                selectedType = TransactionType.INCOME
-                                selectedCategory = ""
-                            },
+                            selected = uiState.type == TransactionType.INCOME,
+                            onClick = { viewModel.updateType(TransactionType.INCOME) },
                             label = {
                                 Text(
                                     "Income",
-                                    fontWeight = if (selectedType == TransactionType.INCOME)
+                                    fontWeight = if (uiState.type == TransactionType.INCOME)
                                         FontWeight.Bold else FontWeight.Normal
                                 )
                             },
@@ -186,10 +167,10 @@ fun AddTransactionScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = amount,
+                        value = uiState.amount,
                         onValueChange = { newValue ->
                             if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
-                                amount = newValue
+                                viewModel.updateAmount(newValue)
                             }
                         },
                         label = { Text("Enter amount") },
@@ -224,8 +205,8 @@ fun AddTransactionScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
+                        value = uiState.description,
+                        onValueChange = { viewModel.updateDescription(it) },
                         label = { Text("What was this for?") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -254,7 +235,7 @@ fun AddTransactionScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val categories = if (selectedType == TransactionType.EXPENSE)
+                    val categories = if (uiState.type == TransactionType.EXPENSE)
                         expenseCategories else incomeCategories
 
                     Column(
@@ -267,12 +248,12 @@ fun AddTransactionScreen(
                             ) {
                                 row.forEach { (category, icon) ->
                                     FilterChip(
-                                        selected = selectedCategory == category,
-                                        onClick = { selectedCategory = category },
+                                        selected = uiState.category == category,
+                                        onClick = { viewModel.updateCategory(category) },
                                         label = {
                                             Text(
                                                 category,
-                                                fontWeight = if (selectedCategory == category)
+                                                fontWeight = if (uiState.category == category)
                                                     FontWeight.Bold else FontWeight.Normal
                                             )
                                         },
@@ -285,9 +266,9 @@ fun AddTransactionScreen(
                                         },
                                         modifier = Modifier.weight(1f),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = if (selectedType == TransactionType.EXPENSE)
+                                            selectedContainerColor = if (uiState.type == TransactionType.EXPENSE)
                                                 Color(0xFFFFEBEE) else Color(0xFFE8F5E9),
-                                            selectedLabelColor = if (selectedType == TransactionType.EXPENSE)
+                                            selectedLabelColor = if (uiState.type == TransactionType.EXPENSE)
                                                 Color(0xFFE53935) else Color(0xFF43A047)
                                         )
                                     )
@@ -303,61 +284,33 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SAVE BUTTON WITH COROUTINE
+            // Save Button
             Button(
                 onClick = {
-                    if (amount.isNotBlank() && description.isNotBlank() && selectedCategory.isNotBlank()) {
-                        isLoading = true
-
-                        val transaction = FinancialTransaction(
-                            id = UUID.randomUUID().toString(),
-                            amount = amount.toDoubleOrNull() ?: 0.0,
-                            type = selectedType,
-                            category = selectedCategory,
-                            description = description,
-                            date = Date()
-                        )
-
-                        // LAUNCH COROUTINE TO SAVE
-                        scope.launch {
-                            try {
-                                // THIS IS THE SUSPEND FUNCTION CALL
-                                transactionManager.addTransaction(transaction)
-
+                    viewModel.saveTransaction(
+                        onSuccess = {
+                            onNavigateBack()
+                        },
+                        onError = { error ->
+                            scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    message = "Transaction added successfully!",
+                                    message = error,
                                     duration = SnackbarDuration.Short
                                 )
-
-                                onNavigateBack()
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(
-                                    message = "Error: ${e.message}",
-                                    duration = SnackbarDuration.Long
-                                )
-                                isLoading = false
                             }
                         }
-                    } else {
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Please fill all fields",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    }
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = !isLoading && amount.isNotBlank() &&
-                        description.isNotBlank() && selectedCategory.isNotBlank(),
+                enabled = !uiState.isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6C63FF)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                if (isLoading) {
+                if (uiState.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White
@@ -379,3 +332,18 @@ fun AddTransactionScreen(
         }
     }
 }
+
+/**
+ * WHAT CHANGED:
+ *
+ * Before:
+ * - Manual state management with remember
+ * - Direct TransactionManager calls
+ * - Coroutine scope for saving
+ *
+ * After:
+ * - All state in ViewModel
+ * - ViewModel handles saving
+ * - Callbacks for success/error
+ * - Clean separation of concerns
+ */
