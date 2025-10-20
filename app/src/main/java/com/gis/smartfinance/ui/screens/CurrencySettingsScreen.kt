@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.gis.smartfinance.data.Currency
 import com.gis.smartfinance.data.CurrencyManager
 import kotlinx.coroutines.launch
+import com.gis.smartfinance.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

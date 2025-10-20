@@ -43,6 +43,7 @@ import com.gis.smartfinance.domain.insights.PatternType
 import com.gis.smartfinance.domain.insights.Recommendation
 import com.gis.smartfinance.domain.insights.ScoreBreakdown
 import com.gis.smartfinance.domain.insights.SpendingPattern
+import com.gis.smartfinance.ui.theme.AppColors
 
 /**
  * Reusable UI components for Insights Screen
@@ -110,8 +111,8 @@ fun DataOverviewCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     when (dataQuality) {
-                        DataQuality.INSUFFICIENT -> "📊 Add more transactions for detailed insights"
-                        DataQuality.LIMITED -> "📈 Track ${7 - daysOfData} more days for full analysis"
+                        DataQuality.INSUFFICIENT -> " Add more transactions for detailed insights"
+                        DataQuality.LIMITED -> "Track ${7 - daysOfData} more days for full analysis"
                         else -> ""
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -286,7 +287,7 @@ fun InsightsSummaryCard(
                         color = Color.White.copy(alpha = 0.9f)
                     )
                     Text(
-                        "€${String.format("%.2f", totalSavingsPotential)}",
+                        "${String.format("%.2f", totalSavingsPotential)} Lek",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -452,7 +453,7 @@ fun InsightCard(insight: Insight) {
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Save €${String.format("%.2f", insight.savingAmount)}/month",
+                            "Save ${String.format("%.2f", insight.savingAmount)} Lek/month",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color(0xFF43A047),
                             fontWeight = FontWeight.Bold

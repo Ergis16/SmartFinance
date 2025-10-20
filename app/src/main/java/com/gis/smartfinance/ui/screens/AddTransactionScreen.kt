@@ -17,13 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.TransactionType
+import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.AddTransactionViewModel
 import kotlinx.coroutines.launch
 
-/**
- * Add Transaction Screen - Now with ViewModel!
- * All state and logic moved to AddTransactionViewModel
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
@@ -55,18 +52,22 @@ fun AddTransactionScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Add Transaction", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -83,7 +84,9 @@ fun AddTransactionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -92,7 +95,7 @@ fun AddTransactionScreen(
                         "Transaction Type",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(
@@ -118,8 +121,8 @@ fun AddTransactionScreen(
                             },
                             modifier = Modifier.weight(1f),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFFFEBEE),
-                                selectedLabelColor = Color(0xFFE53935)
+                                selectedContainerColor = AppColors.ErrorLight,
+                                selectedLabelColor = AppColors.Error
                             )
                         )
 
@@ -142,8 +145,8 @@ fun AddTransactionScreen(
                             },
                             modifier = Modifier.weight(1f),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFE8F5E9),
-                                selectedLabelColor = Color(0xFF43A047)
+                                selectedContainerColor = AppColors.SuccessLight,
+                                selectedLabelColor = AppColors.Success
                             )
                         )
                     }
@@ -154,7 +157,9 @@ fun AddTransactionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -163,7 +168,7 @@ fun AddTransactionScreen(
                         "Amount",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -174,15 +179,15 @@ fun AddTransactionScreen(
                             }
                         },
                         label = { Text("Enter amount") },
-                        prefix = { Text("€ ", fontWeight = FontWeight.Bold) },
+                        prefix = { Text("Lek", fontWeight = FontWeight.Bold) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Decimal
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6C63FF),
-                            focusedLabelColor = Color(0xFF6C63FF)
+                            focusedBorderColor = AppColors.Purple,
+                            focusedLabelColor = AppColors.Purple
                         )
                     )
                 }
@@ -192,7 +197,9 @@ fun AddTransactionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -201,7 +208,7 @@ fun AddTransactionScreen(
                         "Description",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -211,8 +218,8 @@ fun AddTransactionScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6C63FF),
-                            focusedLabelColor = Color(0xFF6C63FF)
+                            focusedBorderColor = AppColors.Purple,
+                            focusedLabelColor = AppColors.Purple
                         )
                     )
                 }
@@ -222,7 +229,9 @@ fun AddTransactionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
@@ -231,7 +240,7 @@ fun AddTransactionScreen(
                         "Category",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -267,9 +276,9 @@ fun AddTransactionScreen(
                                         modifier = Modifier.weight(1f),
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = if (uiState.type == TransactionType.EXPENSE)
-                                                Color(0xFFFFEBEE) else Color(0xFFE8F5E9),
+                                                AppColors.ErrorLight else AppColors.SuccessLight,
                                             selectedLabelColor = if (uiState.type == TransactionType.EXPENSE)
-                                                Color(0xFFE53935) else Color(0xFF43A047)
+                                                AppColors.Error else AppColors.Success
                                         )
                                     )
                                 }
@@ -306,7 +315,7 @@ fun AddTransactionScreen(
                     .height(56.dp),
                 enabled = !uiState.isLoading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6C63FF)
+                    containerColor = AppColors.Purple
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -332,18 +341,3 @@ fun AddTransactionScreen(
         }
     }
 }
-
-/**
- * WHAT CHANGED:
- *
- * Before:
- * - Manual state management with remember
- * - Direct TransactionManager calls
- * - Coroutine scope for saving
- *
- * After:
- * - All state in ViewModel
- * - ViewModel handles saving
- * - Callbacks for success/error
- * - Clean separation of concerns
- */

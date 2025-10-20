@@ -1,6 +1,5 @@
 package com.gis.smartfinance.ui.viewmodel
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gis.smartfinance.data.model.FinancialTransaction
@@ -59,22 +58,33 @@ class HomeViewModel @Inject constructor(
     )
 
     /**
+     * DELETE TRANSACTION
+     * Called when user confirms delete in bottom sheet
+     */
+    fun deleteTransaction(transaction: FinancialTransaction) {
+        viewModelScope.launch {
+            repository.deleteTransaction(transaction)
+        }
+    }
+
+    /**
+     * UPDATE TRANSACTION
+     * ✅ NEW: For inline editing from bottom sheet
+     * Called when user saves edited transaction
+     */
+    fun updateTransaction(transaction: FinancialTransaction) {
+        viewModelScope.launch {
+            repository.updateTransaction(transaction)
+        }
+    }
+
+    /**
      * CLEAR ALL TRANSACTIONS
      * Called from Settings screen
      */
     fun clearAllTransactions() {
         viewModelScope.launch {
             repository.deleteAllTransactions()
-        }
-    }
-
-    /**
-     * DELETE TRANSACTION
-     * For future swipe-to-delete feature
-     */
-    fun deleteTransaction(transaction: FinancialTransaction) {
-        viewModelScope.launch {
-            repository.deleteTransaction(transaction)
         }
     }
 }
@@ -98,18 +108,3 @@ sealed class HomeUiState {
 
     data class Error(val message: String) : HomeUiState()
 }
-
-/**
- * HOW TO USE IN COMPOSABLE:
- *
- * @Composable
- * fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
- *     val uiState by viewModel.uiState.collectAsState()
- *
- *     when (uiState) {
- *         is HomeUiState.Loading -> LoadingIndicator()
- *         is HomeUiState.Success -> ShowContent(uiState.balance, ...)
- *         is HomeUiState.Error -> ShowError(uiState.message)
- *     }
- * }
- */

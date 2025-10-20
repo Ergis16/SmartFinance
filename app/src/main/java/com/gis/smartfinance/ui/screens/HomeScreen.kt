@@ -25,15 +25,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
+import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.HomeViewModel
 import com.gis.smartfinance.ui.viewmodel.HomeUiState
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Home Screen - Main dashboard of the app
- * Now uses MVVM architecture with ViewModel
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -41,13 +39,15 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToEditTransaction: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
+    var selectedTransaction by remember { mutableStateOf<FinancialTransaction?>(null) }
+    var showDetailsSheet by remember { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -58,26 +58,25 @@ fun HomeScreen(
                     )
                 },
                 actions = {
-                    // Settings button
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = Color(0xFF1A1A2E)
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 ),
-                modifier = Modifier.shadow(4.dp)
+                modifier = Modifier.shadow(2.dp)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddTransaction,
-                containerColor = Color(0xFF6C63FF),
+                containerColor = AppColors.Purple,
                 contentColor = Color.White,
                 modifier = Modifier
                     .padding(16.dp)
@@ -93,40 +92,33 @@ fun HomeScreen(
     ) { paddingValues ->
         when (val state = uiState) {
             is HomeUiState.Loading -> {
-                // Loading state
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFF6C63FF)
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = AppColors.Purple)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Loading...",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF757575)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
             is HomeUiState.Success -> {
-                // Success state - show content
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .background(Color(0xFFF5F7FA)),
+                        .background(MaterialTheme.colorScheme.background),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Modern Balance Card with Gradient
                     item {
                         ModernBalanceCard(
                             totalIncome = state.totalIncome,
@@ -135,7 +127,6 @@ fun HomeScreen(
                         )
                     }
 
-                    // Quick Actions with better design
                     item {
                         ModernQuickActions(
                             onNavigateToInsights = onNavigateToInsights,
@@ -143,34 +134,35 @@ fun HomeScreen(
                         )
                     }
 
-                    // Recent Transactions Section
                     item {
                         Text(
                             "Recent Transactions",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
 
-                    // Show transactions or empty state
                     if (state.recentTransactions.isEmpty()) {
-                        item {
-                            EmptyStateCard()
-                        }
+                        item { EmptyStateCard() }
                     } else {
                         items(
                             items = state.recentTransactions,
                             key = { it.id }
                         ) { transaction ->
-                            AnimatedTransactionItem(transaction = transaction)
+                            AnimatedTransactionItem(
+                                transaction = transaction,
+                                onClick = {
+                                    selectedTransaction = transaction
+                                    showDetailsSheet = true
+                                }
+                            )
                         }
                     }
                 }
             }
 
             is HomeUiState.Error -> {
-                // Error state
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -185,25 +177,45 @@ fun HomeScreen(
                             Icons.Default.Error,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
-                            tint = Color(0xFFE53935)
+                            tint = AppColors.Error
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Something went wrong",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF757575)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             state.message,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF9E9E9E),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showDetailsSheet && selectedTransaction != null) {
+        TransactionDetailsSheet(
+            transaction = selectedTransaction!!,
+            onDismiss = {
+                showDetailsSheet = false
+                selectedTransaction = null
+            },
+            onSave = { updatedTransaction ->
+                viewModel.updateTransaction(updatedTransaction)
+                showDetailsSheet = false
+                selectedTransaction = null
+            },
+            onDelete = {
+                viewModel.deleteTransaction(selectedTransaction!!)
+                showDetailsSheet = false
+                selectedTransaction = null
+            }
+        )
     }
 }
 
@@ -218,7 +230,8 @@ fun ModernBalanceCard(
             .fillMaxWidth()
             .height(200.dp),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
             modifier = Modifier
@@ -226,8 +239,8 @@ fun ModernBalanceCard(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF6C63FF),
-                            Color(0xFF4834DF)
+                            AppColors.Purple,
+                            AppColors.PurpleDark
                         )
                     )
                 )
@@ -246,7 +259,7 @@ fun ModernBalanceCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "€${String.format("%,.2f", balance)}",
+                        "${String.format("%,.2f", balance)} Lek",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -273,7 +286,7 @@ fun ModernBalanceCard(
                             )
                         }
                         Text(
-                            "€${String.format("%,.2f", totalIncome)}",
+                            "${String.format("%,.2f", totalIncome)} Lek",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold
@@ -296,7 +309,7 @@ fun ModernBalanceCard(
                             )
                         }
                         Text(
-                            "€${String.format("%,.2f", totalExpense)}",
+                            "${String.format("%,.2f", totalExpense)} Lek",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold
@@ -322,7 +335,7 @@ fun ModernQuickActions(
             modifier = Modifier.weight(1f),
             onClick = onNavigateToInsights,
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
@@ -335,21 +348,22 @@ fun ModernQuickActions(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFFFF3E0)),
+                        .background(AppColors.WarningLight),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Lightbulb,
-                        contentDescription = "AI Insights",
-                        tint = Color(0xFFFFA000),
+                        contentDescription = "Insights",
+                        tint = AppColors.Warning,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "AI Insights",
+                    "Insights",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -358,7 +372,7 @@ fun ModernQuickActions(
             modifier = Modifier.weight(1f),
             onClick = onNavigateToAnalytics,
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
@@ -371,13 +385,13 @@ fun ModernQuickActions(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE8F5E9)),
+                        .background(AppColors.SuccessLight),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.BarChart,
                         contentDescription = "Analytics",
-                        tint = Color(0xFF4CAF50),
+                        tint = AppColors.Success,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -385,26 +399,32 @@ fun ModernQuickActions(
                 Text(
                     "Analytics",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnimatedTransactionItem(transaction: FinancialTransaction) {
+fun AnimatedTransactionItem(
+    transaction: FinancialTransaction,
+    onClick: () -> Unit
+) {
     AnimatedVisibility(
         visible = true,
         enter = fadeIn() + slideInVertically(),
         exit = fadeOut() + slideOutVertically()
     ) {
         Card(
+            onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
@@ -418,16 +438,15 @@ fun AnimatedTransactionItem(transaction: FinancialTransaction) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Category Icon Background
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(
                                 if (transaction.type == TransactionType.EXPENSE)
-                                    Color(0xFFFFEBEE)
+                                    AppColors.ErrorLight
                                 else
-                                    Color(0xFFE8F5E9)
+                                    AppColors.SuccessLight
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -437,13 +456,15 @@ fun AnimatedTransactionItem(transaction: FinancialTransaction) {
                                 "Transport" -> Icons.Default.DirectionsCar
                                 "Shopping" -> Icons.Default.ShoppingBag
                                 "Salary" -> Icons.Default.AccountBalance
+                                "Freelance" -> Icons.Default.Computer
+                                "Investment" -> Icons.Default.TrendingUp
                                 else -> Icons.Default.AttachMoney
                             },
                             contentDescription = null,
                             tint = if (transaction.type == TransactionType.EXPENSE)
-                                Color(0xFFE53935)
+                                AppColors.Error
                             else
-                                Color(0xFF43A047),
+                                AppColors.Success,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -455,26 +476,26 @@ fun AnimatedTransactionItem(transaction: FinancialTransaction) {
                             text = transaction.description,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "${transaction.category} • ${formatDate(transaction.date)}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9E9E9E)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
                 Text(
-                    text = "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}€${
+                    text = "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${
                         String.format("%.2f", transaction.amount)
-                    }",
+                    } Lek",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = if (transaction.type == TransactionType.EXPENSE)
-                        Color(0xFFE53935)
+                        AppColors.Error
                     else
-                        Color(0xFF43A047)
+                        AppColors.Success
                 )
             }
         }
@@ -488,7 +509,7 @@ fun EmptyStateCard() {
             .fillMaxWidth()
             .padding(vertical = 32.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -501,19 +522,19 @@ fun EmptyStateCard() {
                 Icons.Default.AccountBalanceWallet,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = Color(0xFFBDBDBD)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "No transactions yet",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF757575)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "Tap the + button to add your first transaction",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9E9E9E),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -524,20 +545,3 @@ fun formatDate(date: Date): String {
     val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     return formatter.format(date)
 }
-
-/**
- * WHAT CHANGED:
- *
- * Before:
- * - Direct access to PersistentTransactionManager
- * - Manual state management
- * - No error handling
- * - No loading states
- *
- * After:
- * - Uses HomeViewModel with Hilt injection
- * - Observes UI state (Loading/Success/Error)
- * - Settings button in TopAppBar
- * - Clean separation of concerns
- * - Proper error handling
- */

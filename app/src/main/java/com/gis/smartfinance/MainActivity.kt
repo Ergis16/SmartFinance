@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -24,33 +26,44 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gis.smartfinance.data.ThemeManager
+import com.gis.smartfinance.data.ThemeMode
 import com.gis.smartfinance.ui.navigation.Screen
 import com.gis.smartfinance.ui.screens.*
 import com.gis.smartfinance.ui.theme.SmartFinanceTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import javax.inject.Inject
 
-/**
- * Main Activity - Entry point of the app
- *
- * @AndroidEntryPoint: Required for Hilt dependency injection
- * Enables ViewModels to receive injected dependencies
- */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var themeManager: ThemeManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SmartFinanceTheme {
+            // ✅ Observe theme preference
+            val themeMode by themeManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val systemInDarkTheme = isSystemInDarkTheme()
+
+            // Determine if dark theme should be used
+            val useDarkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> systemInDarkTheme
+            }
+
+            SmartFinanceTheme(darkTheme = useDarkTheme) {
                 var showSplash by remember { mutableStateOf(true) }
 
                 LaunchedEffect(Unit) {
-                    delay(2500) // Show splash for 2.5 seconds
+                    delay(2500)
                     showSplash = false
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Main App Content
                     AnimatedVisibility(
                         visible = !showSplash,
                         enter = fadeIn(animationSpec = tween(500)),
@@ -59,7 +72,6 @@ class MainActivity : ComponentActivity() {
                         SmartFinanceApp()
                     }
 
-                    // Splash Screen
                     AnimatedVisibility(
                         visible = showSplash,
                         enter = fadeIn(),
@@ -79,7 +91,6 @@ fun SplashScreen() {
     val alpha = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        // Animate logo scale
         scale.animateTo(
             targetValue = 1f,
             animationSpec = spring(
@@ -87,7 +98,6 @@ fun SplashScreen() {
                 stiffness = Spring.StiffnessLow
             )
         )
-        // Animate alpha
         alpha.animateTo(
             targetValue = 1f,
             animationSpec = tween(1000)
@@ -104,7 +114,6 @@ fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // App Icon
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -123,7 +132,6 @@ fun SplashScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // App Name
             Text(
                 "SmartFinance",
                 fontSize = 32.sp,
@@ -141,7 +149,6 @@ fun SplashScreen() {
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Loading indicator
             CircularProgressIndicator(
                 color = Color.White,
                 strokeWidth = 2.dp,
@@ -159,7 +166,7 @@ fun SmartFinanceApp() {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF5F7FA)
+        color = MaterialTheme.colorScheme.background
     ) {
         NavHost(
             navController = navController,
@@ -189,7 +196,6 @@ fun SmartFinanceApp() {
                 )
             }
         ) {
-            // Home Screen
             composable(Screen.Home.route) {
                 HomeScreen(
                     onNavigateToAddTransaction = {
@@ -203,11 +209,13 @@ fun SmartFinanceApp() {
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route)
+                    },
+                    onNavigateToEditTransaction = { transactionId ->
+                        // Not used anymore since we have inline editing
                     }
                 )
             }
 
-            // Add Transaction Screen
             composable(Screen.AddTransaction.route) {
                 AddTransactionScreen(
                     onNavigateBack = {
@@ -216,7 +224,6 @@ fun SmartFinanceApp() {
                 )
             }
 
-            // Insights Screen
             composable(Screen.Insights.route) {
                 InsightsScreen(
                     onNavigateBack = {
@@ -225,7 +232,6 @@ fun SmartFinanceApp() {
                 )
             }
 
-            // Analytics Screen
             composable(Screen.Analytics.route) {
                 AnalyticsScreen(
                     onNavigateBack = {
@@ -234,7 +240,6 @@ fun SmartFinanceApp() {
                 )
             }
 
-            // Settings Screen
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateBack = {
@@ -245,13 +250,3 @@ fun SmartFinanceApp() {
         }
     }
 }
-
-/**
- * WHAT CHANGED:
- *
- * 1. Added @AndroidEntryPoint annotation (CRITICAL for Hilt)
- * 2. Updated navigation to use Screen sealed class
- * 3. Added Settings screen route
- * 4. HomeScreen now has onNavigateToSettings parameter
- * 5. All screens use proper navigation
- */

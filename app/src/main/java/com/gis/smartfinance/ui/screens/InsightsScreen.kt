@@ -19,12 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.domain.insights.*
 import com.gis.smartfinance.ui.screens.insights.*
+import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.InsightsUiState
 import com.gis.smartfinance.ui.viewmodel.InsightsViewModel
 
-/**
- * Insights Screen - FULLY FIXED VERSION
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
@@ -34,18 +32,22 @@ fun InsightsScreen(
     val uiState by viewModel.insightsState.collectAsState()
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("AI Insights", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -86,7 +88,6 @@ private fun InsightsContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Data overview
         item {
             DataOverviewCard(
                 transactionCount = analysis.insights.size,
@@ -95,7 +96,6 @@ private fun InsightsContent(
             )
         }
 
-        // Health score
         if (analysis.daysOfData >= InsightsConstants.MIN_DAYS_FOR_BASIC_INSIGHTS) {
             item {
                 FinancialHealthCard(
@@ -106,7 +106,6 @@ private fun InsightsContent(
             }
         }
 
-        // Savings potential
         if (analysis.insights.isNotEmpty()) {
             item {
                 InsightsSummaryCard(
@@ -119,26 +118,23 @@ private fun InsightsContent(
             }
         }
 
-        // Spending patterns
         if (analysis.spendingPatterns.isNotEmpty()) {
             item {
                 SpendingPatternsCard(patterns = analysis.spendingPatterns)
             }
         }
 
-        // Individual insights
         items(analysis.insights) { insight ->
             InsightCard(insight = insight)
         }
 
-        // Recommendations
         if (analysis.recommendations.isNotEmpty()) {
             item {
                 Text(
                     "Recommendations",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A2E),
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
@@ -159,12 +155,12 @@ private fun LoadingInsightsState(modifier: Modifier = Modifier) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CircularProgressIndicator(color = Color(0xFF6C63FF))
+            CircularProgressIndicator(color = AppColors.Purple)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "Analyzing your finances...",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF757575)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -184,20 +180,20 @@ private fun EmptyInsightsState(modifier: Modifier = Modifier) {
                 Icons.Default.Psychology,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = Color(0xFFBDBDBD)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "No Data Yet",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF757575)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "Add transactions to get personalized insights",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9E9E9E),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -221,20 +217,20 @@ private fun ErrorInsightsState(
                 Icons.Default.Error,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = Color(0xFFE53935)
+                tint = AppColors.Error
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "Something went wrong",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF757575)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF9E9E9E),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }

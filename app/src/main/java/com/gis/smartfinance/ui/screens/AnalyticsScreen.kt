@@ -19,38 +19,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.AnalyticsViewModel
 
-/**
- * Analytics Screen - Shows spending breakdown and visualizations
- *
- * Now uses ViewModel for proper MVVM architecture
- * All data comes from Room database through Repository
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     onNavigateBack: () -> Unit,
     viewModel: AnalyticsViewModel = hiltViewModel()
 ) {
-    // Collect states from ViewModel
     val expensesByCategory by viewModel.expensesByCategory.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Analytics", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -62,7 +60,6 @@ fun AnalyticsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Summary Cards
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -72,26 +69,27 @@ fun AnalyticsScreen(
                         title = "Total Income",
                         amount = totalIncome,
                         icon = Icons.Default.TrendingUp,
-                        color = Color(0xFF43A047),
+                        color = AppColors.Success,
                         modifier = Modifier.weight(1f)
                     )
                     SummaryCard(
                         title = "Total Expenses",
                         amount = totalExpense,
                         icon = Icons.Default.TrendingDown,
-                        color = Color(0xFFE53935),
+                        color = AppColors.Error,
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Pie Chart for Expenses
             if (expensesByCategory.isNotEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp)
@@ -100,7 +98,7 @@ fun AnalyticsScreen(
                                 "Expense Breakdown",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1A1A2E)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             PieChart(
@@ -115,12 +113,13 @@ fun AnalyticsScreen(
                     }
                 }
 
-                // Category Details List
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp)
@@ -129,7 +128,7 @@ fun AnalyticsScreen(
                                 "Category Details",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1A1A2E)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -149,14 +148,15 @@ fun AnalyticsScreen(
                     }
                 }
             } else {
-                // Empty state
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 32.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
                         Column(
                             modifier = Modifier
@@ -168,18 +168,18 @@ fun AnalyticsScreen(
                                 Icons.Default.BarChart,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = Color(0xFFBDBDBD)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 "No data to display",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF757575)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 "Add some transactions to see analytics",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF9E9E9E)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -189,10 +189,6 @@ fun AnalyticsScreen(
     }
 }
 
-/**
- * Summary Card Component
- * Shows total income or expense with icon
- */
 @Composable
 fun SummaryCard(
     title: String,
@@ -204,7 +200,9 @@ fun SummaryCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -228,10 +226,10 @@ fun SummaryCard(
             Text(
                 title,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF757575)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "€${String.format("%.2f", amount)}",
+                "${String.format("%.2f", amount)} Lek",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color
@@ -240,22 +238,17 @@ fun SummaryCard(
     }
 }
 
-/**
- * Pie Chart Component
- * Draws circular chart with category segments
- */
 @Composable
 fun PieChart(
     data: Map<String, Double>,
     modifier: Modifier = Modifier
 ) {
-    // Color palette for categories
     val colors = listOf(
-        Color(0xFF6C63FF),
-        Color(0xFFFF6B6B),
+        AppColors.Purple,
+        AppColors.Error,
         Color(0xFF4ECDC4),
-        Color(0xFFFFA726),
-        Color(0xFF66BB6A),
+        AppColors.Warning,
+        AppColors.Success,
         Color(0xFFAB47BC),
         Color(0xFF29B6F6),
         Color(0xFFFF7043)
@@ -264,7 +257,7 @@ fun PieChart(
     val total = data.values.sum()
     if (total == 0.0) return
 
-    var startAngle = -90f // Start from top
+    var startAngle = -90f
 
     Canvas(modifier = modifier) {
         val radius = size.minDimension / 2
@@ -288,18 +281,14 @@ fun PieChart(
     }
 }
 
-/**
- * Category Legend Component
- * Shows color-coded list of categories
- */
 @Composable
 fun CategoryLegend(data: Map<String, Double>) {
     val colors = listOf(
-        Color(0xFF6C63FF),
-        Color(0xFFFF6B6B),
+        AppColors.Purple,
+        AppColors.Error,
         Color(0xFF4ECDC4),
-        Color(0xFFFFA726),
-        Color(0xFF66BB6A),
+        AppColors.Warning,
+        AppColors.Success,
         Color(0xFFAB47BC),
         Color(0xFF29B6F6),
         Color(0xFFFF7043)
@@ -325,22 +314,20 @@ fun CategoryLegend(data: Map<String, Double>) {
                 Text(
                     entry.key,
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "€${String.format("%.2f", entry.value)}",
+                    "${String.format("%.2f", entry.value)} Lek ",
                     style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
     }
 }
 
-/**
- * Category Row Component
- * Shows category with progress bar
- */
 @Composable
 fun CategoryRow(
     category: String,
@@ -356,13 +343,13 @@ fun CategoryRow(
             Text(
                 category,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF1A1A2E)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "€${String.format("%.2f", amount)} (${String.format("%.1f", percentage)}%)",
+                "${String.format("%.2f", amount)} (${String.format("%.1f", percentage)}%) Lek",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF6C63FF)
+                color = AppColors.Purple
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -372,28 +359,8 @@ fun CategoryRow(
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
-            color = Color(0xFF6C63FF),
-            trackColor = Color(0xFFE0E0E0)
+            color = AppColors.Purple,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
     }
 }
-
-/**
- * WHAT WAS FIXED:
- *
- * CRITICAL BUG:
- * - Before: Text("Text(\"€ \", fontWeight = FontWeight.Bold) }")
- * - After: Text("€${String.format("%.2f", amount)}")
- *
- * ARCHITECTURE:
- * - Before: Manual data fetching from TransactionManager
- * - After: Clean MVVM with ViewModel
- *
- * PERFORMANCE:
- * - Before: Loading all transactions in UI
- * - After: Efficient database aggregations
- *
- * TYPE SAFETY:
- * - Before: Map operations in UI layer
- * - After: Repository handles data transformation
- */
