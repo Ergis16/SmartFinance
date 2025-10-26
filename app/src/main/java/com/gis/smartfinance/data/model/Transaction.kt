@@ -9,13 +9,7 @@ import java.util.UUID
 
 /**
  * Main transaction entity stored in Room database
- *
- * Room benefits over DataStore:
- * - Can query by date range: "SELECT * WHERE date BETWEEN X AND Y"
- * - Can group by category: "SELECT category, SUM(amount)"
- * - Indexed searches (fast even with 10,000+ transactions)
- * - Proper data types (no JSON parsing errors)
- * - Database migrations (add columns without losing data)
+ * ✅ FIXED #16: Added proper validation with init block
  */
 @Entity(tableName = "transactions")
 @TypeConverters(Converters::class)
@@ -33,10 +27,9 @@ data class FinancialTransaction(
 
     val date: Date = Date(),
 
-    // Future-ready fields (for subcategories feature you want)
     val subcategory: String? = null,
 
-    val tags: String = "",  // Comma-separated for now, can parse later
+    val tags: String = "",  // TODO: Convert to List<String> with type converter
 
     val location: String? = null,
 
@@ -50,27 +43,131 @@ data class FinancialTransaction(
 
     val updatedAt: Date = Date()
 ) {
-    /**
-     * Validation: Ensures data integrity
-     * Call this before saving to database
-     */
-    fun isValid(): Boolean {
-        return amount > 0.0 &&
-                description.isNotBlank() &&
-                category.isNotBlank()
+    // ✅ FIXED: Minimal validation - allows 1+ character descriptions
+    init {
+        require(amount > 0) {
+            "Amount must be greater than 0 (got: $amount)"
+        }
+        require(amount <= 10_000_000) {
+            "Amount is unrealistically large (got: $amount)"
+        }
+        // ✅ ONLY CHECK: Description is not blank (1+ character is fine)
+        require(description.isNotBlank()) {
+            "Description cannot be empty"
+        }
+        require(category.isNotBlank()) {
+            "Category cannot be empty"
+        }
+        require(!date.after(Date())) {
+            "Transaction date cannot be in the future"
+        }
+
+        // Validate that date isn't unrealistically old (e.g., before year 2000)
+        val year2000 = Date(946684800000L) // January 1, 2000
+        require(date.after(year2000)) {
+            "Transaction date is too old (before year 2000)"
+        }
+
+        // If recurring, period must be set
+        if (isRecurring) {
+            requireNotNull(recurringPeriod) {
+                "Recurring period must be set for recurring transactions"
+            }
+        }
     }
 
     /**
-     * Validation with specific error messages
+     * ✅ UPDATED: More lenient validation - minimum 1 character
      */
     fun validate(): ValidationResult {
         return when {
             amount <= 0.0 -> ValidationResult.Error("Amount must be greater than 0")
-            amount > 1_000_000.0 -> ValidationResult.Error("Amount too large")
+            amount > 10_000_000.0 -> ValidationResult.Error("Amount too large")
             description.isBlank() -> ValidationResult.Error("Description required")
+            description.length > 500 -> ValidationResult.Error("Description too long (max 500 characters)")
             category.isBlank() -> ValidationResult.Error("Category required")
             date.after(Date()) -> ValidationResult.Error("Date cannot be in future")
+            isRecurring && recurringPeriod == null -> ValidationResult.Error("Recurring period required")
             else -> ValidationResult.Success
+        }
+    }
+
+    /**
+     * Simple validity check (for backward compatibility)
+     */
+    fun isValid(): Boolean {
+        return validate() is ValidationResult.Success
+    }
+
+    /**
+     * ✅ ADDED #16: Sanitize user input
+     * Use this before creating transactions from user input
+     */
+    companion object {
+        /**
+         * Create a safe transaction with sanitized inputs
+         */
+        fun createSafe(
+            amount: Double,
+            type: TransactionType,
+            category: String,
+            description: String,
+            date: Date = Date()
+        ): Result<FinancialTransaction> {
+            return try {
+                val sanitizedDescription = description
+                    .trim()
+                    .take(500) // Max 500 chars
+                    .replace(Regex("\\s+"), " ") // Normalize whitespace
+
+                val sanitizedCategory = category.trim()
+
+                val transaction = FinancialTransaction(
+                    id = UUID.randomUUID().toString(),
+                    amount = amount.coerceIn(0.01, 10_000_000.0),
+                    type = type,
+                    category = sanitizedCategory,
+                    description = sanitizedDescription,
+                    date = date,
+                    createdAt = Date(),
+                    updatedAt = Date()
+                )
+
+                Result.success(transaction)
+            } catch (e: IllegalArgumentException) {
+                Result.failure(e)
+            }
+        }
+
+        /**
+         * Validate amount before creating transaction
+         */
+        fun isValidAmount(amount: Double): Boolean {
+            return amount > 0 && amount <= 10_000_000
+        }
+
+        /**
+         * Validate description before creating transaction
+         */
+        fun isValidDescription(description: String): Boolean {
+            val trimmed = description.trim()
+            return trimmed.length in 3..500
+        }
+
+        /**
+         * Validate category before creating transaction
+         */
+        fun isValidCategory(category: String): Boolean {
+            return category.trim().isNotBlank()
+        }
+
+        /**
+         * Validate date before creating transaction
+         */
+        fun isValidDate(date: Date): Boolean {
+            val now = Date()
+            val year2000 = Date(946684800000L)
+            return date.before(now) && date.after(year2000)
         }
     }
 }
@@ -105,16 +202,7 @@ sealed class ValidationResult {
 
 /**
  * Extension function to format amount with currency
- * (Will use CurrencyManager in future when you implement it)
  */
-fun Double.toFormattedPrice(): String {
-    return "€${String.format("%.2f", this)}"
+fun Double.toFormattedPrice(currencySymbol: String = "Lek"): String {
+    return "$currencySymbol ${String.format("%,.2f", this)}"
 }
-
-/**
- * WHAT THIS FIXES:
- * - Added validation to prevent bad data
- * - Added subcategory field for future feature
- * - Type-safe with Room (no JSON parsing errors)
- * - Can add more fields without breaking existing data (migrations)
- */

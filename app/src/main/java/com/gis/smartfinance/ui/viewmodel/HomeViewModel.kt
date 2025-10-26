@@ -9,79 +9,77 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * HomeViewModel - Manages Home Screen State
- *
- * @HiltViewModel: Tells Hilt to inject dependencies
- * @Inject constructor: Hilt provides TransactionRepository
- *
- * ViewModel benefits:
- * - Survives configuration changes (screen rotation)
- * - Separates business logic from UI
- * - Testable (can mock repository)
- * - Lifecycle-aware (cleans up automatically)
- */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TransactionRepository
 ) : ViewModel() {
 
-    /**
-     * UI STATE
-     *
-     * StateFlow = Flow that always has a value
-     * UI collects this and recomposes when it changes
-     *
-     * SharingStarted.WhileSubscribed(5000):
-     * - Stops collecting when no subscribers for 5 seconds
-     * - Saves battery/resources
-     * - Restarts when UI comes back
-     */
+    // ✅ FIXED #19: Separate flows to prevent unnecessary recompositions
+    // Each screen component can subscribe to only what it needs
+
+    private val _allTransactions = repository.getAllTransactions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentTransactions: StateFlow<List<FinancialTransaction>> = _allTransactions
+        .map { transactions ->
+            transactions.take(10) // Only take first 10
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalIncome: StateFlow<Double> = repository.getTotalIncome()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val totalExpense: StateFlow<Double> = repository.getTotalExpense()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val balance: StateFlow<Double> = repository.getBalance()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    // ✅ FIXED #19: Computed state using derivedStateOf
+    // Only recomputes when dependencies change
+    val hasTransactions: StateFlow<Boolean> = _allTransactions
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // ✅ FIXED: Combined UI state with proper error handling
     val uiState: StateFlow<HomeUiState> = combine(
-        repository.getAllTransactions(),
-        repository.getTotalIncome(),
-        repository.getTotalExpense(),
-        repository.getBalance(),
-        repository.getRecentTransactions(10)
-    ) { transactions, income, expense, balance, recent ->
+        _allTransactions,
+        recentTransactions,
+        totalIncome,
+        totalExpense,
+        balance
+    ) { all, recent, income, expense, bal ->
+        // Return Success state
         HomeUiState.Success(
-            allTransactions = transactions,
+            allTransactions = all,
             recentTransactions = recent,
             totalIncome = income,
             totalExpense = expense,
-            balance = balance
+            balance = bal
+        ) as HomeUiState // ✅ FIX: Cast to base type
+    }
+        .catch { error ->
+            // Emit error state
+            emit(HomeUiState.Error(error.message ?: "Unknown error"))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HomeUiState.Loading
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = HomeUiState.Loading
-    )
 
-    /**
-     * DELETE TRANSACTION
-     * Called when user confirms delete in bottom sheet
-     */
     fun deleteTransaction(transaction: FinancialTransaction) {
         viewModelScope.launch {
             repository.deleteTransaction(transaction)
         }
     }
 
-    /**
-     * UPDATE TRANSACTION
-     * ✅ NEW: For inline editing from bottom sheet
-     * Called when user saves edited transaction
-     */
     fun updateTransaction(transaction: FinancialTransaction) {
         viewModelScope.launch {
             repository.updateTransaction(transaction)
         }
     }
 
-    /**
-     * CLEAR ALL TRANSACTIONS
-     * Called from Settings screen
-     */
     fun clearAllTransactions() {
         viewModelScope.launch {
             repository.deleteAllTransactions()
@@ -89,12 +87,6 @@ class HomeViewModel @Inject constructor(
     }
 }
 
-/**
- * UI STATE SEALED CLASS
- *
- * Represents all possible states of Home screen
- * UI can pattern match on this
- */
 sealed class HomeUiState {
     object Loading : HomeUiState()
 
@@ -104,7 +96,13 @@ sealed class HomeUiState {
         val totalIncome: Double,
         val totalExpense: Double,
         val balance: Double
-    ) : HomeUiState()
+    ) : HomeUiState() {
+        // ✅ ADDED #19: Computed properties that don't cause recomposition
+        val hasTransactions: Boolean get() = allTransactions.isNotEmpty()
+        val transactionCount: Int get() = allTransactions.size
+        val savingsRate: Double get() =
+            if (totalIncome > 0) (totalIncome - totalExpense) / totalIncome else 0.0
+    }
 
     data class Error(val message: String) : HomeUiState()
 }

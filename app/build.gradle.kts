@@ -18,7 +18,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Room schema export (for database migrations in future)
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments["room.schemaLocation"] = "$projectDir/schemas"
@@ -71,12 +70,13 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // Room Database - ACTUALLY USED NOW
+    // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    implementation("androidx.room:room-paging:2.6.1") // ✅ ADDED: Room Paging
     kapt("androidx.room:room-compiler:2.6.1")
 
-    // Hilt Dependency Injection - ACTUALLY USED NOW
+    // Hilt Dependency Injection
     implementation("com.google.dagger:hilt-android:2.48")
     kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
@@ -88,19 +88,20 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // DataStore - Only for app preferences (NOT transaction data)
+    // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Paging 3
+    implementation("androidx.paging:paging-runtime:3.2.1") // ✅ ADDED: Paging Runtime
+    implementation("androidx.paging:paging-compose:3.2.1") // ✅ ADDED: Paging Compose
 
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-
-    // REMOVED: Retrofit, OkHttp, WorkManager, Gson, Parcelize (unused)
 }
 
-// Hilt requires this
 kapt {
     correctErrorTypes = true
 }

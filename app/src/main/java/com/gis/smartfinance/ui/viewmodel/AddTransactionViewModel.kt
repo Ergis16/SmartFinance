@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
+import com.gis.smartfinance.data.model.TransactionResult // ✅ ADDED
 import com.gis.smartfinance.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,90 +15,112 @@ import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
 
-/**
- * AddTransactionViewModel
- * Manages state for adding new transactions
- */
 @HiltViewModel
 class AddTransactionViewModel @Inject constructor(
     private val repository: TransactionRepository
 ) : ViewModel() {
 
-    // Mutable state for form inputs
     private val _uiState = MutableStateFlow(AddTransactionUiState())
     val uiState: StateFlow<AddTransactionUiState> = _uiState.asStateFlow()
 
-    /**
-     * Update amount
-     */
     fun updateAmount(amount: String) {
-        _uiState.value = _uiState.value.copy(amount = amount)
-    }
-
-    /**
-     * Update description
-     */
-    fun updateDescription(description: String) {
-        _uiState.value = _uiState.value.copy(description = description)
-    }
-
-    /**
-     * Update transaction type
-     */
-    fun updateType(type: TransactionType) {
         _uiState.value = _uiState.value.copy(
-            type = type,
-            category = "" // Reset category when type changes
+            amount = amount,
+            amountError = null // ✅ ADDED: Clear error when user types
         )
     }
 
-    /**
-     * Update category
-     */
-    fun updateCategory(category: String) {
-        _uiState.value = _uiState.value.copy(category = category)
+    fun updateDescription(description: String) {
+        _uiState.value = _uiState.value.copy(
+            description = description,
+            descriptionError = null // ✅ ADDED: Clear error when user types
+        )
     }
 
-    /**
-     * Save transaction
-     * Returns true if successful
-     */
+    fun updateType(type: TransactionType) {
+        _uiState.value = _uiState.value.copy(
+            type = type,
+            category = "",
+            categoryError = null // ✅ ADDED: Clear error when user changes type
+        )
+    }
+
+    fun updateCategory(category: String) {
+        _uiState.value = _uiState.value.copy(
+            category = category,
+            categoryError = null // ✅ ADDED: Clear error when user selects
+        )
+    }
+
+    // ✅ ADDED: Date picker support (#9)
+    fun updateDate(date: Date) {
+        _uiState.value = _uiState.value.copy(date = date)
+    }
+
     fun saveTransaction(onSuccess: () -> Unit, onError: (String) -> Unit) {
         val state = _uiState.value
 
-        // Validation
-        if (state.amount.isBlank()) {
-            onError("Please enter an amount")
-            return
-        }
+        // ✅ CHANGED: Clear all previous errors
+        _uiState.value = _uiState.value.copy(
+            amountError = null,
+            descriptionError = null,
+            categoryError = null
+        )
 
-        val amountDouble = state.amount.toDoubleOrNull()
-        if (amountDouble == null || amountDouble <= 0) {
-            onError("Please enter a valid amount")
-            return
+        var hasError = false
+
+        // ✅ CHANGED: Set specific error messages
+        if (state.amount.isBlank()) {
+            _uiState.value = _uiState.value.copy(amountError = "Amount is required")
+            hasError = true
+        } else {
+            val amountDouble = state.amount.toDoubleOrNull()
+            if (amountDouble == null) {
+                _uiState.value = _uiState.value.copy(amountError = "Invalid amount")
+                hasError = true
+            } else if (amountDouble <= 0) {
+                _uiState.value = _uiState.value.copy(amountError = "Amount must be greater than 0")
+                hasError = true
+            } else if (amountDouble > 1_000_000) {
+                _uiState.value = _uiState.value.copy(amountError = "Amount too large")
+                hasError = true
+            }
         }
 
         if (state.description.isBlank()) {
-            onError("Please enter a description")
-            return
+            _uiState.value = _uiState.value.copy(descriptionError = "Description is required")
+            hasError = true
         }
+        // ✅ REMOVED: Length validation - user can enter 1+ characters
 
         if (state.category.isBlank()) {
-            onError("Please select a category")
+            _uiState.value = _uiState.value.copy(categoryError = "Please select a category")
+            hasError = true
+        }
+
+        // ✅ ADDED: Date validation
+        if (state.date.after(Date())) {
+            onError("Transaction date cannot be in the future")
+            hasError = true
+        }
+
+        if (hasError) {
+            onError("Please fix the errors above")
             return
         }
 
         // Create transaction
         val transaction = FinancialTransaction(
             id = UUID.randomUUID().toString(),
-            amount = amountDouble,
+            amount = state.amount.toDouble(),
             type = state.type,
             category = state.category,
             description = state.description,
-            date = Date()
+            date = state.date, // ✅ ADDED: Use selected date
+            createdAt = Date(),
+            updatedAt = Date()
         )
 
-        // Save to database
         _uiState.value = _uiState.value.copy(isLoading = true)
 
         viewModelScope.launch {
@@ -105,22 +128,33 @@ class AddTransactionViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(isLoading = false)
 
-            if (result.isSuccess) {
-                onSuccess()
-            } else {
-                onError(result.exceptionOrNull()?.message ?: "Failed to save transaction")
+            // ✅ FIXED: Handle TransactionResult with proper type
+            when (result) {
+                is TransactionResult.Success<*> -> { // ✅ FIX: Add <*> for type
+                    onSuccess()
+                }
+                is TransactionResult.Error -> {
+                    onError("${result.message} (${result.code.name})")
+                }
+                is TransactionResult.ValidationError -> {
+                    onError("${result.field.name}: ${result.message}")
+                }
             }
         }
     }
 }
 
 /**
- * UI State for Add Transaction screen
+ * ✅ UPDATED: Added error fields for each input
  */
 data class AddTransactionUiState(
     val amount: String = "",
+    val amountError: String? = null, // ✅ ADDED
     val description: String = "",
+    val descriptionError: String? = null, // ✅ ADDED
     val type: TransactionType = TransactionType.EXPENSE,
     val category: String = "",
+    val categoryError: String? = null, // ✅ ADDED
+    val date: Date = Date(), // ✅ ADDED: For date picker
     val isLoading: Boolean = false
 )

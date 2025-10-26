@@ -39,7 +39,6 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToEditTransaction: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()

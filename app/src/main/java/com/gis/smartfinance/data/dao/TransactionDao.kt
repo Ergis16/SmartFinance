@@ -1,18 +1,20 @@
 package com.gis.smartfinance.data.dao
 
+import androidx.paging.PagingSource
 import androidx.room.*
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 
-/**
- * FIXED DAO - All Room annotation errors resolved
- */
 @Dao
 interface TransactionDao {
 
     @Query("SELECT * FROM transactions ORDER BY date DESC")
     fun getAllTransactions(): Flow<List<FinancialTransaction>>
+
+    // ✅ ADDED #18: Paginated transactions
+    @Query("SELECT * FROM transactions ORDER BY date DESC")
+    fun getAllTransactionsPaged(): PagingSource<Int, FinancialTransaction>
 
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: String): FinancialTransaction?
@@ -27,12 +29,31 @@ interface TransactionDao {
         endDate: Long
     ): Flow<List<FinancialTransaction>>
 
+    // ✅ ADDED #18: Paginated transactions by date range
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE date BETWEEN :startDate AND :endDate 
+        ORDER BY date DESC
+    """)
+    fun getTransactionsBetweenPaged(
+        startDate: Long,
+        endDate: Long
+    ): PagingSource<Int, FinancialTransaction>
+
     @Query("""
         SELECT * FROM transactions 
         WHERE category = :category 
         ORDER BY date DESC
     """)
     fun getTransactionsByCategory(category: String): Flow<List<FinancialTransaction>>
+
+    // ✅ ADDED #18: Paginated transactions by category
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE category = :category 
+        ORDER BY date DESC
+    """)
+    fun getTransactionsByCategoryPaged(category: String): PagingSource<Int, FinancialTransaction>
 
     @Query("""
         SELECT * FROM transactions 
@@ -60,10 +81,6 @@ interface TransactionDao {
         endDate: Long
     ): Double
 
-    /**
-     * FIXED: Returns List<CategoryTotal> instead of Map
-     * We'll convert to Map in Repository
-     */
     @Query("""
         SELECT category, SUM(amount) as total 
         FROM transactions 
@@ -88,6 +105,16 @@ interface TransactionDao {
         ORDER BY date DESC
     """)
     fun searchTransactions(query: String): Flow<List<FinancialTransaction>>
+
+    // ✅ ADDED #18: Paginated search
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE description LIKE '%' || :query || '%' 
+        OR merchantName LIKE '%' || :query || '%'
+        OR category LIKE '%' || :query || '%'
+        ORDER BY date DESC
+    """)
+    fun searchTransactionsPaged(query: String): PagingSource<Int, FinancialTransaction>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: FinancialTransaction)
@@ -114,10 +141,6 @@ interface TransactionDao {
     suspend fun getNewestTransactionDate(): Long?
 }
 
-/**
- * Data class for category totals
- * Room can map query results to this
- */
 data class CategoryTotal(
     val category: String,
     val total: Double

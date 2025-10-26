@@ -1,9 +1,7 @@
 package com.gis.smartfinance.data.repository
 
 import com.gis.smartfinance.data.dao.TransactionDao
-import com.gis.smartfinance.data.model.FinancialTransaction
-import com.gis.smartfinance.data.model.TransactionType
-import com.gis.smartfinance.data.model.ValidationResult
+import com.gis.smartfinance.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -28,53 +26,87 @@ class TransactionRepository @Inject constructor(
         return transactionDao.getRecentTransactions(limit)
     }
 
-    suspend fun addTransaction(transaction: FinancialTransaction): Result<Unit> {
+    /**
+     * Add a new transaction
+     * Returns TransactionResult with specific error types
+     */
+    suspend fun addTransaction(transaction: FinancialTransaction): TransactionResult<Unit> {
         return try {
+            // Validate transaction
             when (val validation = transaction.validate()) {
                 is ValidationResult.Success -> {
+                    // Save to database
                     transactionDao.insertTransaction(transaction)
-                    Result.success(Unit)
+                    TransactionResult.Success(Unit)
                 }
                 is ValidationResult.Error -> {
-                    Result.failure(IllegalArgumentException(validation.message))
+                    // Map validation error to appropriate field
+                    val field = determineValidationField(validation.message)
+                    TransactionResult.ValidationError(field, validation.message)
                 }
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            TransactionResult.Error(
+                message = e.message ?: "Failed to save transaction",
+                code = ErrorCode.DATABASE_ERROR,
+                exception = e
+            )
         }
     }
 
-    suspend fun updateTransaction(transaction: FinancialTransaction): Result<Unit> {
+    /**
+     * Update existing transaction
+     */
+    suspend fun updateTransaction(transaction: FinancialTransaction): TransactionResult<Unit> {
         return try {
             when (val validation = transaction.validate()) {
                 is ValidationResult.Success -> {
                     transactionDao.updateTransaction(transaction)
-                    Result.success(Unit)
+                    TransactionResult.Success(Unit)
                 }
                 is ValidationResult.Error -> {
-                    Result.failure(IllegalArgumentException(validation.message))
+                    val field = determineValidationField(validation.message)
+                    TransactionResult.ValidationError(field, validation.message)
                 }
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            TransactionResult.Error(
+                message = e.message ?: "Failed to update transaction",
+                code = ErrorCode.DATABASE_ERROR,
+                exception = e
+            )
         }
     }
 
-    suspend fun deleteTransaction(transaction: FinancialTransaction): Result<Unit> {
+    /**
+     * Delete a transaction
+     */
+    suspend fun deleteTransaction(transaction: FinancialTransaction): TransactionResult<Unit> {
         return try {
             transactionDao.deleteTransaction(transaction)
-            Result.success(Unit)
+            TransactionResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            TransactionResult.Error(
+                message = e.message ?: "Failed to delete transaction",
+                code = ErrorCode.DATABASE_ERROR,
+                exception = e
+            )
         }
     }
 
-    suspend fun deleteAllTransactions(): Result<Unit> {
+    /**
+     * Delete all transactions
+     */
+    suspend fun deleteAllTransactions(): TransactionResult<Unit> {
         return try {
             transactionDao.deleteAllTransactions()
-            Result.success(Unit)
+            TransactionResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            TransactionResult.Error(
+                message = e.message ?: "Failed to clear data",
+                code = ErrorCode.DATABASE_ERROR,
+                exception = e
+            )
         }
     }
 
@@ -107,9 +139,6 @@ class TransactionRepository @Inject constructor(
         }
     }
 
-    /**
-     * FIXED: Convert List<CategoryTotal> to Map<String, Double>
-     */
     fun getExpensesByCategory(): Flow<Map<String, Double>> {
         return transactionDao.getCategoryTotalsList(TransactionType.EXPENSE)
             .map { list ->
@@ -117,9 +146,6 @@ class TransactionRepository @Inject constructor(
             }
     }
 
-    /**
-     * FIXED: Convert List<CategoryTotal> to Map<String, Double>
-     */
     fun getIncomeByCategory(): Flow<Map<String, Double>> {
         return transactionDao.getCategoryTotalsList(TransactionType.INCOME)
             .map { list ->
@@ -155,13 +181,17 @@ class TransactionRepository @Inject constructor(
 
         return if (days > 0) total / days else 0.0
     }
-}
 
-/**
- * WHAT WAS FIXED:
- *
- * 1. DAO now returns List<CategoryTotal> instead of Map
- * 2. Repository converts List to Map using .associate()
- * 3. Room can now properly generate the implementation
- * 4. All type mapping errors resolved
- */
+    /**
+     * Helper function to determine validation field from error message
+     */
+    private fun determineValidationField(message: String): ValidationField {
+        return when {
+            message.contains("amount", ignoreCase = true) -> ValidationField.AMOUNT
+            message.contains("description", ignoreCase = true) -> ValidationField.DESCRIPTION
+            message.contains("category", ignoreCase = true) -> ValidationField.CATEGORY
+            message.contains("date", ignoreCase = true) -> ValidationField.DATE
+            else -> ValidationField.AMOUNT // Default
+        }
+    }
+}

@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -44,11 +43,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // ✅ Observe theme preference
             val themeMode by themeManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val systemInDarkTheme = isSystemInDarkTheme()
 
-            // Determine if dark theme should be used
             val useDarkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -107,7 +104,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF6C63FF)),
+            .background(Color(0xFF6C63FF)), // ✅ FIXED: Purple background back
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -119,14 +116,14 @@ fun SplashScreen() {
                     .size(120.dp)
                     .scale(scale.value)
                     .clip(CircleShape)
-                    .background(Color.White),
+                    .background(Color.White), // ✅ FIXED: White box back
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.AccountBalance,
                     contentDescription = null,
                     modifier = Modifier.size(60.dp),
-                    tint = Color(0xFF6C63FF)
+                    tint = Color(0xFF6C63FF) // ✅ FIXED: Purple icon back
                 )
             }
 
@@ -136,21 +133,21 @@ fun SplashScreen() {
                 "SmartFinance",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = Color.White, // ✅ FIXED: White text back
                 modifier = Modifier.graphicsLayer { this.alpha = alpha.value }
             )
 
             Text(
                 "Track • Analyze • Save",
                 fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.8f),
+                color = Color.White.copy(alpha = 0.8f), // ✅ FIXED: White text back
                 modifier = Modifier.graphicsLayer { this.alpha = alpha.value }
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
             CircularProgressIndicator(
-                color = Color.White,
+                color = Color.White, // ✅ FIXED: White spinner back
                 strokeWidth = 2.dp,
                 modifier = Modifier
                     .size(32.dp)
@@ -209,10 +206,9 @@ fun SmartFinanceApp() {
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route)
-                    },
-                    onNavigateToEditTransaction = { transactionId ->
-                        // Not used anymore since we have inline editing
                     }
+                    // ✅ FIXED #6: Removed unused onNavigateToEditTransaction parameter
+                    // We're using inline editing via bottom sheet now
                 )
             }
 
@@ -247,6 +243,9 @@ fun SmartFinanceApp() {
                     }
                 )
             }
+
+            // ✅ FIXED #6: Removed EditTransaction route
+            // Using inline editing sheet instead for better UX
         }
     }
 }
