@@ -15,12 +15,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.ThemeMode
 import com.gis.smartfinance.ui.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 import com.gis.smartfinance.ui.theme.AppColors
 
+/**
+ * ✅ FIX #3: Reduced padding throughout
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -37,7 +41,13 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp // Fixed size
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -54,8 +64,8 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(12.dp), // ✅ Reduced from 16dp
+            verticalArrangement = Arrangement.spacedBy(10.dp) // ✅ Reduced from 12dp
         ) {
             // Appearance Section
             Card(
@@ -66,15 +76,15 @@ fun SettingsScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp) // ✅ Reduced from 16dp
                 ) {
                     Text(
                         "Appearance",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall, // ✅ Smaller title
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp)) // ✅ Reduced from 16dp
 
                     // Theme Setting
                     SettingItem(
@@ -86,7 +96,7 @@ fun SettingsScreen(
                             ThemeMode.SYSTEM -> "System default"
                         },
                         onClick = { showThemeDialog = true },
-                        iconColor = Color(0xFF6C63FF),
+                        iconColor = AppColors.Purple,
                         enabled = true
                     )
                 }
@@ -101,23 +111,23 @@ fun SettingsScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp) // ✅ Reduced
                 ) {
                     Text(
                         "Data Management",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Clear All Data Button
                     SettingItem(
                         icon = Icons.Default.DeleteForever,
                         title = "Clear All Data",
-                        subtitle = "Remove all transactions and start fresh",
+                        subtitle = "Remove all transactions",
                         onClick = { showClearDialog = true },
-                        iconColor = Color(0xFFE53935),
+                        iconColor = AppColors.Error,
                         enabled = !isClearing
                     )
                 }
@@ -132,22 +142,22 @@ fun SettingsScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
                     Text(
                         "About",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     SettingItem(
                         icon = Icons.Default.Info,
                         title = "Version",
                         subtitle = "1.0.0",
                         onClick = { /* Do nothing */ },
-                        iconColor = Color(0xFF6C63FF),
+                        iconColor = AppColors.Purple,
                         enabled = true
                     )
                 }
@@ -193,10 +203,10 @@ fun SettingsScreen(
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = Color(0xFFE53935)
+                            color = AppColors.Error
                         )
                     } else {
-                        Text("Clear", color = Color(0xFFE53935))
+                        Text("Clear", color = AppColors.Error)
                     }
                 }
             },
@@ -231,7 +241,7 @@ fun ThemeSelectionDialog(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp) // ✅ Reduced
             ) {
                 ThemeOption(
                     icon = Icons.Default.LightMode,
@@ -267,7 +277,7 @@ fun ThemeSelectionDialog(
 }
 
 /**
- * Theme Option Item
+ * ✅ COMPACT Theme Option Item
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -287,17 +297,17 @@ fun ThemeOption(
             else
                 MaterialTheme.colorScheme.surface
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp), // ✅ Reduced from 16dp
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp) // ✅ Reduced from 40dp
                     .clip(CircleShape)
                     .background(
                         if (isSelected)
@@ -314,16 +324,16 @@ fun ThemeOption(
                         MaterialTheme.colorScheme.onPrimary
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -339,7 +349,7 @@ fun ThemeOption(
                     Icons.Default.CheckCircle,
                     contentDescription = "Selected",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -347,7 +357,7 @@ fun ThemeOption(
 }
 
 /**
- * Reusable Setting Item Component
+ * ✅ COMPACT Setting Item Component
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -370,20 +380,20 @@ fun SettingItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp), // ✅ Reduced from 8dp
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = if (enabled) iconColor else iconColor.copy(alpha = 0.5f),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp) // ✅ Slightly smaller
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = if (enabled)
                         MaterialTheme.colorScheme.onSurface

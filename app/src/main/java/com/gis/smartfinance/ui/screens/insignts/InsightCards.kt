@@ -1,76 +1,50 @@
 package com.gis.smartfinance.ui.screens.insights
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.ShowChart
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingFlat
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.gis.smartfinance.domain.insights.DataQuality
-import com.gis.smartfinance.domain.insights.Insight
-import com.gis.smartfinance.domain.insights.PatternType
-import com.gis.smartfinance.domain.insights.Recommendation
-import com.gis.smartfinance.domain.insights.ScoreBreakdown
-import com.gis.smartfinance.domain.insights.SpendingPattern
+import androidx.compose.ui.unit.sp
+import com.gis.smartfinance.domain.insights.*
 import com.gis.smartfinance.ui.theme.AppColors
 
 /**
- * Reusable UI components for Insights Screen
- * Extracted from massive InsightsScreen.kt
+ * ✅ REAL FIX: Uses MaterialTheme.colorScheme instead of isSystemInDarkTheme()
+ * This respects the theme set in Theme.kt
  */
 
-/**
- * Data Overview Card
- * Shows transaction count, days tracked, and data quality
- */
 @Composable
 fun DataOverviewCard(
     transactionCount: Int,
     daysOfData: Int,
     dataQuality: DataQuality
 ) {
+    // ✅ FIXED: Use predefined colors, MaterialTheme handles light/dark
+    val backgroundColor = when (dataQuality) {
+        DataQuality.EXCELLENT -> Color(0xFF43A047)
+        DataQuality.GOOD -> Color(0xFF66BB6A)
+        DataQuality.LIMITED -> Color(0xFFFFA726)
+        DataQuality.INSUFFICIENT -> Color(0xFFFF9800)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when (dataQuality) {
-                DataQuality.EXCELLENT -> Color(0xFF43A047)
-                DataQuality.GOOD -> Color(0xFF66BB6A)
-                DataQuality.LIMITED -> Color(0xFFFFA726)
-                DataQuality.INSUFFICIENT -> Color(0xFFFF9800)
-            }
-        )
+        colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
         Column(
             modifier = Modifier
@@ -81,42 +55,97 @@ fun DataOverviewCard(
                 "Data Overview",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                DataMetric(
-                    label = "Transactions",
-                    value = transactionCount.toString(),
-                    icon = Icons.Default.Receipt
-                )
-                DataMetric(
-                    label = "Days Tracked",
-                    value = daysOfData.toString(),
-                    icon = Icons.Default.CalendarToday
-                )
-                DataMetric(
-                    label = "Data Quality",
-                    value = dataQuality.displayName,
-                    icon = Icons.Default.Assessment
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(90.dp)
+                ) {
+                    Text(
+                        transactionCount.toString(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Transactions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(90.dp)
+                ) {
+                    Text(
+                        daysOfData.toString(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Days",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(90.dp)
+                ) {
+                    Text(
+                        dataQuality.displayName,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Quality",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             if (dataQuality == DataQuality.INSUFFICIENT || dataQuality == DataQuality.LIMITED) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     when (dataQuality) {
-                        DataQuality.INSUFFICIENT -> " Add more transactions for detailed insights"
-                        DataQuality.LIMITED -> "Track ${7 - daysOfData} more days for full analysis"
+                        DataQuality.INSUFFICIENT -> "💡 Add more transactions"
+                        DataQuality.LIMITED -> "📊 Track ${7 - daysOfData} more days"
                         else -> ""
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.95f),
+                    fontSize = 13.sp
                 )
             }
         }
@@ -124,53 +153,36 @@ fun DataOverviewCard(
 }
 
 @Composable
-private fun DataMetric(
-    label: String,
-    value: String,
-    icon: ImageVector
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.8f),
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            value,
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.8f)
-        )
-    }
-}
-
-/**
- * Financial Health Card
- * Shows overall health score with breakdown
- */
-@Composable
 fun FinancialHealthCard(
     healthScore: Int,
     scoreBreakdown: ScoreBreakdown,
     explanation: String
 ) {
+    val animatedScore by animateIntAsState(
+        targetValue = healthScore,
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        label = "score_animation"
+    )
+
+    var previousScore by remember { mutableStateOf(healthScore) }
+    val scoreDelta = healthScore - previousScore
+
+    LaunchedEffect(healthScore) {
+        kotlinx.coroutines.delay(1000)
+        previousScore = healthScore
+    }
+
+    // ✅ Simple color based on score
+    val backgroundColor = when {
+        healthScore >= 80 -> Color(0xFF43A047)
+        healthScore >= 60 -> Color(0xFFFFA726)
+        else -> Color(0xFFE53935)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                healthScore >= 80 -> Color(0xFF43A047)
-                healthScore >= 60 -> Color(0xFFFFA726)
-                else -> Color(0xFFE53935)
-            }
-        )
+        colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
         Column(
             modifier = Modifier
@@ -186,27 +198,46 @@ fun FinancialHealthCard(
                     Text(
                         "Financial Health Score",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 16.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "$healthScore/100",
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        healthScore.getRating(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
 
-                Column(horizontalAlignment = Alignment.End) {
-                    ScoreItem("Savings", scoreBreakdown.savingsScore)
-                    ScoreItem("Spending", scoreBreakdown.spendingScore)
-                    ScoreItem("Income", scoreBreakdown.incomeScore)
-                    ScoreItem("Balance", scoreBreakdown.balanceScore)
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        modifier = Modifier.animateContentSize()
+                    ) {
+                        Text(
+                            "$animatedScore",
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 56.sp
+                        )
+                        Text(
+                            "/100",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 24.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            healthScore.getRating(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        if (scoreDelta != 0) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            ScoreDeltaIndicator(delta = scoreDelta)
+                        }
+                    }
                 }
             }
 
@@ -214,14 +245,15 @@ fun FinancialHealthCard(
 
             Text(
                 explanation,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.9f)
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.95f),
+                fontSize = 14.sp
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             LinearProgressIndicator(
-                progress = healthScore / 100f,
+                progress = { animatedScore / 100f },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
@@ -234,30 +266,32 @@ fun FinancialHealthCard(
 }
 
 @Composable
-private fun ScoreItem(label: String, score: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 2.dp)
+private fun ScoreDeltaIndicator(delta: Int) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (delta > 0) Color(0xFF4CAF50) else Color(0xFFE53935)
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.8f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            "$score%",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                if (delta > 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                if (delta > 0) "+$delta" else "$delta",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
-/**
- * Insights Summary Card
- * Shows total savings potential
- */
 @Composable
 fun InsightsSummaryCard(
     totalSavingsPotential: Double,
@@ -267,9 +301,7 @@ fun InsightsSummaryCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF6C63FF)
-        )
+        colors = CardDefaults.cardColors(containerColor = AppColors.Purple)
     ) {
         Column(
             modifier = Modifier
@@ -321,22 +353,19 @@ fun InsightsSummaryCard(
     }
 }
 
-/**
- * Spending Patterns Card
- */
 @Composable
 fun SpendingPatternsCard(patterns: List<SpendingPattern>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 "Spending Patterns Detected",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1A1A2E)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -358,13 +387,13 @@ fun SpendingPatternsCard(patterns: List<SpendingPattern>) {
                         Text(
                             pattern.description,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (pattern.impact != null) {
                             Text(
                                 pattern.impact,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF757575)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -374,15 +403,12 @@ fun SpendingPatternsCard(patterns: List<SpendingPattern>) {
     }
 }
 
-/**
- * Individual Insight Card
- */
 @Composable
 fun InsightCard(insight: Insight) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -416,7 +442,7 @@ fun InsightCard(insight: Insight) {
                         insight.title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E),
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -439,7 +465,7 @@ fun InsightCard(insight: Insight) {
                 Text(
                     insight.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF757575)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (insight.savingAmount > 0) {
@@ -473,7 +499,7 @@ fun InsightCard(insight: Insight) {
                                 Text(
                                     action,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF1A1A2E)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -484,17 +510,12 @@ fun InsightCard(insight: Insight) {
     }
 }
 
-/**
- * Recommendation Card
- */
 @Composable
 fun RecommendationCard(recommendation: Recommendation) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = recommendation.backgroundColor
-        )
+        colors = CardDefaults.cardColors(containerColor = recommendation.backgroundColor)
     ) {
         Row(
             modifier = Modifier
@@ -514,13 +535,13 @@ fun RecommendationCard(recommendation: Recommendation) {
                     recommendation.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A2E)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     recommendation.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF757575)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (recommendation.expectedImpact != null) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -536,9 +557,6 @@ fun RecommendationCard(recommendation: Recommendation) {
     }
 }
 
-/**
- * Extension functions for cleaner code
- */
 private val DataQuality.displayName: String
     get() = when (this) {
         DataQuality.EXCELLENT -> "Excellent"

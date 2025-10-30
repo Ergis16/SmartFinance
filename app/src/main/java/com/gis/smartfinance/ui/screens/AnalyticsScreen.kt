@@ -24,6 +24,11 @@ import com.gis.smartfinance.ui.components.EmptyStateCard
 import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.AnalyticsViewModel
 
+/**
+ * ✅ FIXED: No dark mode checks - uses fixed bright colors
+ * Theme.kt handles dark mode automatically
+ */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
@@ -34,7 +39,6 @@ fun AnalyticsScreen(
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
 
-    // ✅ ADDED: Loading state
     val isLoading by remember {
         derivedStateOf {
             expensesByCategory.isEmpty() && totalExpense == 0.0
@@ -62,11 +66,9 @@ fun AnalyticsScreen(
             )
         }
     ) { paddingValues ->
-        // ✅ ADDED: Show loading or content
         if (isLoading) {
             LoadingAnalytics(Modifier.padding(paddingValues))
         } else if (expensesByCategory.isEmpty()) {
-            // ✅ ADDED: Beautiful empty state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -92,18 +94,13 @@ fun AnalyticsScreen(
     }
 }
 
-/**
- * ✅ ADDED: Separate composable to limit recomposition scope
- */
 @Composable
 private fun LoadingAnalytics(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = AppColors.Purple)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -115,9 +112,6 @@ private fun LoadingAnalytics(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * ✅ EXTRACTED: Content composable
- */
 @Composable
 private fun AnalyticsContent(
     expensesByCategory: Map<String, Double>,
@@ -130,20 +124,19 @@ private fun AnalyticsContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Summary Cards
         item(key = "summary") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                SummaryCard(
+                SummaryCardFixed(
                     title = "Total Income",
                     amount = totalIncome,
                     icon = Icons.Default.TrendingUp,
                     color = AppColors.Success,
                     modifier = Modifier.weight(1f)
                 )
-                SummaryCard(
+                SummaryCardFixed(
                     title = "Total Expenses",
                     amount = totalExpense,
                     icon = Icons.Default.TrendingDown,
@@ -153,7 +146,6 @@ private fun AnalyticsContent(
             }
         }
 
-        // Net Balance Card
         item(key = "net_balance") {
             val netBalance = totalIncome - totalExpense
             val isPositive = netBalance >= 0
@@ -162,10 +154,7 @@ private fun AnalyticsContent(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isPositive)
-                        AppColors.SuccessLight
-                    else
-                        AppColors.ErrorLight
+                    containerColor = if (isPositive) AppColors.SuccessLight else AppColors.ErrorLight
                 )
             ) {
                 Row(
@@ -199,7 +188,6 @@ private fun AnalyticsContent(
             }
         }
 
-        // Pie Chart
         item(key = "pie_chart") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -230,7 +218,6 @@ private fun AnalyticsContent(
             }
         }
 
-        // Category Details
         item(key = "category_details") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -266,7 +253,6 @@ private fun AnalyticsContent(
             }
         }
 
-        // ✅ ADDED: Insights based on data
         if (totalExpense > 0) {
             item(key = "quick_insights") {
                 QuickInsightsCard(
@@ -279,9 +265,59 @@ private fun AnalyticsContent(
     }
 }
 
-/**
- * ✅ ADDED: Quick insights card
- */
+@Composable
+fun SummaryCardFixed(
+    title: String,
+    amount: Double,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "${String.format("%.2f", amount)} Lek",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                maxLines = 1
+            )
+        }
+    }
+}
+
 @Composable
 private fun QuickInsightsCard(
     expensesByCategory: Map<String, Double>,
@@ -303,9 +339,7 @@ private fun QuickInsightsCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Lightbulb,
                     contentDescription = null,
@@ -316,7 +350,8 @@ private fun QuickInsightsCard(
                 Text(
                     "Quick Insights",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -371,55 +406,6 @@ private fun InsightRow(
             style = MaterialTheme.typography.bodyMedium,
             color = color
         )
-    }
-}
-
-@Composable
-fun SummaryCard(
-    title: String,
-    amount: Double,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "${String.format("%.2f", amount)} Lek",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-        }
     }
 }
 
