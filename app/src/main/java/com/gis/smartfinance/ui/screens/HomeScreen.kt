@@ -1,9 +1,7 @@
 package com.gis.smartfinance.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +28,7 @@ import com.gis.smartfinance.data.model.TransactionType
 import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.HomeViewModel
 import com.gis.smartfinance.ui.viewmodel.HomeUiState
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,9 +39,11 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
     var selectedTransaction by remember { mutableStateOf<FinancialTransaction?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
 
@@ -51,11 +52,10 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    // ✅ FIX #2: Consistent text size
                     Text(
                         "SmartFinance",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp, // Fixed size
+                        fontSize = 20.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -123,11 +123,11 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        // ✅ FIX #1: Auto-scaling balance card
                         ModernBalanceCardFixed(
                             totalIncome = state.totalIncome,
                             totalExpense = state.totalExpense,
-                            balance = state.balance
+                            balance = state.balance,
+                            currency = currency // ✅ PASS CURRENCY
                         )
                     }
 
@@ -156,6 +156,7 @@ fun HomeScreen(
                         ) { transaction ->
                             AnimatedTransactionItem(
                                 transaction = transaction,
+                                currency = currency, // ✅ PASS CURRENCY
                                 onClick = {
                                     selectedTransaction = transaction
                                     showDetailsSheet = true
@@ -205,6 +206,7 @@ fun HomeScreen(
     if (showDetailsSheet && selectedTransaction != null) {
         TransactionDetailsSheet(
             transaction = selectedTransaction!!,
+            currency = currency, // ✅ PASS CURRENCY
             onDismiss = {
                 showDetailsSheet = false
                 selectedTransaction = null
@@ -223,22 +225,19 @@ fun HomeScreen(
     }
 }
 
-/**
- * ✅ FIX #1 + DARK MODE: Auto-scaling balance card with dark theme support
- */
 @Composable
 fun ModernBalanceCardFixed(
     totalIncome: Double,
     totalExpense: Double,
-    balance: Double
+    balance: Double,
+    currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.background == AppColors.DarkBackground
 
-    // ✅ Muted gradient for dark mode
     val gradientColors = if (isDark) {
         listOf(
-            Color(0xFF5B4FCC), // Darker purple
-            Color(0xFF3D2F9F)  // Even darker
+            Color(0xFF4F47B8),
+            Color(0xFF3D2F9F)
         )
     } else {
         listOf(
@@ -268,7 +267,6 @@ fun ModernBalanceCardFixed(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top: Total Balance with auto-scaling
                 Column {
                     Text(
                         "Total Balance",
@@ -278,9 +276,8 @@ fun ModernBalanceCardFixed(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // ✅ AUTO-SCALING TEXT
                     AutoSizeText(
-                        text = "${String.format("%,.2f", balance)} Lek",
+                        text = "${currency.symbol} ${String.format("%,.2f", balance)}", // ✅ USES CURRENCY
                         maxLines = 1,
                         minFontSize = 20.sp,
                         maxFontSize = 36.sp,
@@ -289,12 +286,10 @@ fun ModernBalanceCardFixed(
                     )
                 }
 
-                // Bottom: Income & Expense with auto-scaling
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Income
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -312,7 +307,7 @@ fun ModernBalanceCardFixed(
                             )
                         }
                         AutoSizeText(
-                            text = "${String.format("%,.2f", totalIncome)} Lek",
+                            text = "${currency.symbol} ${String.format("%,.2f", totalIncome)}", // ✅ USES CURRENCY
                             maxLines = 1,
                             minFontSize = 12.sp,
                             maxFontSize = 16.sp,
@@ -321,7 +316,6 @@ fun ModernBalanceCardFixed(
                         )
                     }
 
-                    // Expense
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.End
@@ -342,7 +336,7 @@ fun ModernBalanceCardFixed(
                             )
                         }
                         AutoSizeText(
-                            text = "${String.format("%,.2f", totalExpense)} Lek",
+                            text = "${currency.symbol} ${String.format("%,.2f", totalExpense)}", // ✅ USES CURRENCY
                             maxLines = 1,
                             minFontSize = 12.sp,
                             maxFontSize = 16.sp,
@@ -357,10 +351,6 @@ fun ModernBalanceCardFixed(
     }
 }
 
-/**
- * ✅ AUTO-SIZING TEXT COMPOSABLE
- * Automatically shrinks text to fit container
- */
 @Composable
 fun AutoSizeText(
     text: String,
@@ -411,13 +401,12 @@ fun ModernQuickActions(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.background == AppColors.DarkBackground
 
-    // ✅ Darker icon backgrounds in dark mode
-    val insightsBg = if (isDark) Color(0xFF3A2F1B) else AppColors.WarningLight
+    val insightsBg = if (isDark) Color(0xFF4A3800) else AppColors.WarningLight
     val insightsIcon = if (isDark) Color(0xFFFFB74D) else AppColors.Warning
-    val analyticsBg = if (isDark) Color(0xFF1B3A1B) else AppColors.SuccessLight
-    val analyticsIcon = if (isDark) Color(0xFF81C784) else AppColors.Success
+    val analyticsBg = if (isDark) Color(0xFF1B5E20) else AppColors.SuccessLight
+    val analyticsIcon = if (isDark) Color(0xFF66BB6A) else AppColors.Success
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -499,42 +488,13 @@ fun ModernQuickActions(
     }
 }
 
-/**
- * ✅ FIX #4 + DARK MODE: Transaction cards with theme-aware colors
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnimatedTransactionItem(
     transaction: FinancialTransaction,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-
-    // ✅ Darker backgrounds in dark mode
-    val iconBg = if (isDark) {
-        if (transaction.type == TransactionType.EXPENSE)
-            Color(0xFF3A1B1B) // Dark red
-        else
-            Color(0xFF1B3A1B) // Dark green
-    } else {
-        if (transaction.type == TransactionType.EXPENSE)
-            AppColors.ErrorLight
-        else
-            AppColors.SuccessLight
-    }
-
-    val iconColor = if (isDark) {
-        if (transaction.type == TransactionType.EXPENSE)
-            Color(0xFFE57373) // Muted red
-        else
-            Color(0xFF81C784) // Muted green
-    } else {
-        if (transaction.type == TransactionType.EXPENSE)
-            AppColors.Error
-        else
-            AppColors.Success
-    }
-
     AnimatedVisibility(
         visible = true,
         enter = fadeIn() + slideInVertically(),
@@ -566,7 +526,22 @@ fun AnimatedTransactionItem(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(iconBg),
+                            .background(
+                                when (transaction.type) {
+                                    TransactionType.EXPENSE ->
+                                        if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                            AppColors.ErrorDarkBg
+                                        } else {
+                                            AppColors.ErrorLight
+                                        }
+                                    TransactionType.INCOME ->
+                                        if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                            AppColors.SuccessDarkBg
+                                        } else {
+                                            AppColors.SuccessLight
+                                        }
+                                }
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -580,7 +555,20 @@ fun AnimatedTransactionItem(
                                 else -> Icons.Default.AttachMoney
                             },
                             contentDescription = null,
-                            tint = iconColor,
+                            tint = when (transaction.type) {
+                                TransactionType.EXPENSE ->
+                                    if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                        AppColors.ErrorDark
+                                    } else {
+                                        AppColors.Error
+                                    }
+                                TransactionType.INCOME ->
+                                    if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                        AppColors.SuccessDark
+                                    } else {
+                                        AppColors.Success
+                                    }
+                            },
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -605,10 +593,23 @@ fun AnimatedTransactionItem(
                 Text(
                     text = "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${
                         String.format("%.2f", transaction.amount)
-                    } Lek",
+                    } ${currency.symbol}", // ✅ USES CURRENCY
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = iconColor
+                    color = when (transaction.type) {
+                        TransactionType.EXPENSE ->
+                            if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                AppColors.ErrorDark
+                            } else {
+                                AppColors.Error
+                            }
+                        TransactionType.INCOME ->
+                            if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                AppColors.SuccessDark
+                            } else {
+                                AppColors.Success
+                            }
+                    }
                 )
             }
         }

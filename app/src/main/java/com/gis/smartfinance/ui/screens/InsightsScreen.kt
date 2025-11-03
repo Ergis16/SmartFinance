@@ -1,18 +1,14 @@
 package com.gis.smartfinance.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,14 +18,17 @@ import com.gis.smartfinance.ui.screens.insights.*
 import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.InsightsUiState
 import com.gis.smartfinance.ui.viewmodel.InsightsViewModel
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: InsightsViewModel = hiltViewModel()
+    viewModel: InsightsViewModel = hiltViewModel(),
+    currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED
 ) {
     val uiState by viewModel.insightsState.collectAsState()
+    val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -64,6 +63,7 @@ fun InsightsScreen(
             is InsightsUiState.Success -> {
                 InsightsContent(
                     analysis = state.analysis,
+                    currency = currency, // ✅ PASS CURRENCY
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -81,6 +81,7 @@ fun InsightsScreen(
 @Composable
 private fun InsightsContent(
     analysis: InsightsAnalysis,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -113,7 +114,8 @@ private fun InsightsContent(
                     insightsCount = analysis.insights.size,
                     urgentInsights = analysis.insights.count {
                         it.priority == InsightPriority.URGENT
-                    }
+                    },
+                    currency = currency // ✅ PASS CURRENCY
                 )
             }
         }
@@ -125,7 +127,10 @@ private fun InsightsContent(
         }
 
         items(analysis.insights) { insight ->
-            InsightCard(insight = insight)
+            InsightCard(
+                insight = insight,
+                currency = currency // ✅ PASS CURRENCY
+            )
         }
 
         if (analysis.recommendations.isNotEmpty()) {

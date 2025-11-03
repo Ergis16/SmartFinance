@@ -23,21 +23,19 @@ import com.gis.smartfinance.ui.components.EmptyChartIllustration
 import com.gis.smartfinance.ui.components.EmptyStateCard
 import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.AnalyticsViewModel
-
-/**
- * ✅ FIXED: No dark mode checks - uses fixed bright colors
- * Theme.kt handles dark mode automatically
- */
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: AnalyticsViewModel = hiltViewModel()
+    viewModel: AnalyticsViewModel = hiltViewModel(),
+    currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED
 ) {
     val expensesByCategory by viewModel.expensesByCategory.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
+    val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
 
     val isLoading by remember {
         derivedStateOf {
@@ -88,6 +86,7 @@ fun AnalyticsScreen(
                 expensesByCategory = expensesByCategory,
                 totalIncome = totalIncome,
                 totalExpense = totalExpense,
+                currency = currency, // ✅ PASS CURRENCY
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -117,6 +116,7 @@ private fun AnalyticsContent(
     expensesByCategory: Map<String, Double>,
     totalIncome: Double,
     totalExpense: Double,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -132,6 +132,7 @@ private fun AnalyticsContent(
                 SummaryCardFixed(
                     title = "Total Income",
                     amount = totalIncome,
+                    currency = currency, // ✅ PASS CURRENCY
                     icon = Icons.Default.TrendingUp,
                     color = AppColors.Success,
                     modifier = Modifier.weight(1f)
@@ -139,6 +140,7 @@ private fun AnalyticsContent(
                 SummaryCardFixed(
                     title = "Total Expenses",
                     amount = totalExpense,
+                    currency = currency, // ✅ PASS CURRENCY
                     icon = Icons.Default.TrendingDown,
                     color = AppColors.Error,
                     modifier = Modifier.weight(1f)
@@ -172,7 +174,7 @@ private fun AnalyticsContent(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "${if (isPositive) "+" else ""}${String.format("%.2f", netBalance)} Lek",
+                            "${if (isPositive) "+" else ""}${currency.symbol} ${String.format("%.2f", netBalance)}", // ✅ USES CURRENCY
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (isPositive) AppColors.Success else AppColors.Error
@@ -213,7 +215,10 @@ private fun AnalyticsContent(
                             .height(200.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    CategoryLegend(data = expensesByCategory)
+                    CategoryLegend(
+                        data = expensesByCategory,
+                        currency = currency // ✅ PASS CURRENCY
+                    )
                 }
             }
         }
@@ -241,6 +246,7 @@ private fun AnalyticsContent(
                         CategoryRow(
                             category = category,
                             amount = amount,
+                            currency = currency, // ✅ PASS CURRENCY
                             percentage = if (totalExpense > 0) {
                                 (amount / totalExpense * 100).toFloat()
                             } else 0f
@@ -269,6 +275,7 @@ private fun AnalyticsContent(
 fun SummaryCardFixed(
     title: String,
     amount: Double,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
     modifier: Modifier = Modifier
@@ -308,7 +315,7 @@ fun SummaryCardFixed(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "${String.format("%.2f", amount)} Lek",
+                "${currency.symbol} ${String.format("%.2f", amount)}", // ✅ USES CURRENCY
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color,
@@ -453,7 +460,10 @@ fun PieChart(
 }
 
 @Composable
-fun CategoryLegend(data: Map<String, Double>) {
+fun CategoryLegend(
+    data: Map<String, Double>,
+    currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
+) {
     val colors = listOf(
         AppColors.Purple,
         AppColors.Error,
@@ -489,7 +499,7 @@ fun CategoryLegend(data: Map<String, Double>) {
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "${String.format("%.2f", entry.value)} Lek",
+                    "${currency.symbol} ${String.format("%.2f", entry.value)}", // ✅ USES CURRENCY
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -503,6 +513,7 @@ fun CategoryLegend(data: Map<String, Double>) {
 fun CategoryRow(
     category: String,
     amount: Double,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     percentage: Float
 ) {
     Column {
@@ -517,7 +528,7 @@ fun CategoryRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "${String.format("%.2f", amount)} (${String.format("%.1f", percentage)}%) Lek",
+                "${currency.symbol} ${String.format("%.2f", amount)} (${String.format("%.1f", percentage)}%)", // ✅ USES CURRENCY
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.Purple

@@ -22,18 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.gis.smartfinance.domain.insights.*
 import com.gis.smartfinance.ui.theme.AppColors
 
-/**
- * ✅ REAL FIX: Uses MaterialTheme.colorScheme instead of isSystemInDarkTheme()
- * This respects the theme set in Theme.kt
- */
-
 @Composable
 fun DataOverviewCard(
     transactionCount: Int,
     daysOfData: Int,
     dataQuality: DataQuality
 ) {
-    // ✅ FIXED: Use predefined colors, MaterialTheme handles light/dark
     val backgroundColor = when (dataQuality) {
         DataQuality.EXCELLENT -> Color(0xFF43A047)
         DataQuality.GOOD -> Color(0xFF66BB6A)
@@ -172,7 +166,6 @@ fun FinancialHealthCard(
         previousScore = healthScore
     }
 
-    // ✅ Simple color based on score
     val backgroundColor = when {
         healthScore >= 80 -> Color(0xFF43A047)
         healthScore >= 60 -> Color(0xFFFFA726)
@@ -296,7 +289,8 @@ private fun ScoreDeltaIndicator(delta: Int) {
 fun InsightsSummaryCard(
     totalSavingsPotential: Double,
     insightsCount: Int,
-    urgentInsights: Int
+    urgentInsights: Int,
+    currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -319,7 +313,7 @@ fun InsightsSummaryCard(
                         color = Color.White.copy(alpha = 0.9f)
                     )
                     Text(
-                        "${String.format("%.2f", totalSavingsPotential)} Lek",
+                        "${currency.symbol} ${String.format("%.2f", totalSavingsPotential)}", // ✅ USES CURRENCY
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -404,7 +398,10 @@ fun SpendingPatternsCard(patterns: List<SpendingPattern>) {
 }
 
 @Composable
-fun InsightCard(insight: Insight) {
+fun InsightCard(
+    insight: Insight,
+    currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -479,7 +476,7 @@ fun InsightCard(insight: Insight) {
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Save ${String.format("%.2f", insight.savingAmount)} Lek/month",
+                            "Save ${currency.symbol} ${String.format("%.2f", insight.savingAmount)}/month", // ✅ USES CURRENCY
                             style = MaterialTheme.typography.labelMedium,
                             color = Color(0xFF43A047),
                             fontWeight = FontWeight.Bold

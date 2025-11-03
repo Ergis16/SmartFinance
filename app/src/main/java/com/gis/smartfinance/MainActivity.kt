@@ -9,8 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,8 +21,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -29,7 +32,9 @@ import com.gis.smartfinance.data.ThemeManager
 import com.gis.smartfinance.data.ThemeMode
 import com.gis.smartfinance.ui.navigation.Screen
 import com.gis.smartfinance.ui.screens.*
+import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.theme.SmartFinanceTheme
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import javax.inject.Inject
@@ -104,7 +109,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF6C63FF)), // ✅ FIXED: Purple background back
+            .background(Color(0xFF6C63FF)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -116,14 +121,14 @@ fun SplashScreen() {
                     .size(120.dp)
                     .scale(scale.value)
                     .clip(CircleShape)
-                    .background(Color.White), // ✅ FIXED: White box back
+                    .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.AccountBalance,
                     contentDescription = null,
                     modifier = Modifier.size(60.dp),
-                    tint = Color(0xFF6C63FF) // ✅ FIXED: Purple icon back
+                    tint = Color(0xFF6C63FF)
                 )
             }
 
@@ -133,21 +138,21 @@ fun SplashScreen() {
                 "SmartFinance",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White, // ✅ FIXED: White text back
+                color = Color.White,
                 modifier = Modifier.graphicsLayer { this.alpha = alpha.value }
             )
 
             Text(
                 "Track • Analyze • Save",
                 fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.8f), // ✅ FIXED: White text back
+                color = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.graphicsLayer { this.alpha = alpha.value }
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
             CircularProgressIndicator(
-                color = Color.White, // ✅ FIXED: White spinner back
+                color = Color.White,
                 strokeWidth = 2.dp,
                 modifier = Modifier
                     .size(32.dp)
@@ -160,6 +165,21 @@ fun SplashScreen() {
 @Composable
 fun SmartFinanceApp() {
     val navController = rememberNavController()
+
+    // ✅ Currency ViewModel for first launch detection
+    val currencyViewModel: CurrencyViewModel = hiltViewModel()
+    val isFirstLaunch by currencyViewModel.isFirstLaunch.collectAsState()
+    val autoDetectedCurrency = currencyViewModel.autoDetectedCurrency
+
+    var showFirstLaunchDialog by remember { mutableStateOf(false) }
+
+    // ✅ Show currency dialog on first launch (after splash)
+    LaunchedEffect(isFirstLaunch) {
+        if (isFirstLaunch) {
+            delay(1000) // Wait 1 second after splash finishes
+            showFirstLaunchDialog = true
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -207,8 +227,6 @@ fun SmartFinanceApp() {
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route)
                     }
-                    // ✅ FIXED #6: Removed unused onNavigateToEditTransaction parameter
-                    // We're using inline editing via bottom sheet now
                 )
             }
 
@@ -240,12 +258,152 @@ fun SmartFinanceApp() {
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
+                    },
+                    onNavigateToCurrency = {
+                        navController.navigate("currency_settings")
                     }
                 )
             }
 
-            // ✅ FIXED #6: Removed EditTransaction route
-            // Using inline editing sheet instead for better UX
+            // ✅ Currency Settings Route
+            composable("currency_settings") {
+                com.gis.smartfinance.ui.screens.settings.CurrencySettingsScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
+    }
+
+    // ✅ First Launch Currency Selection Dialog
+    if (showFirstLaunchDialog) {
+        AlertDialog(
+            onDismissRequest = { /* Can't dismiss without choosing */ },
+            icon = {
+                Icon(
+                    Icons.Default.Public,
+                    contentDescription = null,
+                    tint = AppColors.Purple,
+                    modifier = Modifier.size(64.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Welcome to SmartFinance!",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "We detected your currency based on your location:",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // ✅ Detected Currency Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                autoDetectedCurrency.flag,
+                                fontSize = 40.sp
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    autoDetectedCurrency.name,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "${autoDetectedCurrency.code} (${autoDetectedCurrency.symbol})",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        "You can change this later in Settings",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // ✅ Accept Button
+                    Button(
+                        onClick = {
+                            currencyViewModel.useAutoDetectedCurrency()
+                            showFirstLaunchDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppColors.Purple
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Use This Currency")
+                    }
+
+                    // ✅ Choose Different Button
+                    OutlinedButton(
+                        onClick = {
+                            navController.navigate("currency_settings")
+                            showFirstLaunchDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Purple
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Choose Different")
+                    }
+                }
+            }
+        )
     }
 }

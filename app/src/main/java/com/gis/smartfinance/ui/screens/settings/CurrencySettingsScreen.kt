@@ -1,4 +1,4 @@
-package com.gis.smartfinance.ui.screens
+package com.gis.smartfinance.ui.screens.settings
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -16,63 +16,54 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.Currency
-import com.gis.smartfinance.data.CurrencyManager
-import kotlinx.coroutines.launch
 import com.gis.smartfinance.ui.theme.AppColors
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
+import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrencySettingsScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: CurrencyViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val currencyManager = remember { CurrencyManager.getInstance(context) }
+    val selectedCurrency by viewModel.selectedCurrency.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val filteredCurrencies by viewModel.filteredCurrencies.collectAsState()
+    val autoDetectedCurrency = viewModel.autoDetectedCurrency
+
+    var showAutoDetectDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val selectedCurrency by currencyManager.selectedCurrency.collectAsState(
-        initial = Currency("EUR", "€", "Euro", "🇪🇺")
-    )
-
-    var searchQuery by remember { mutableStateOf("") }
-    var showAutoDetectDialog by remember { mutableStateOf(false) }
-
-    // Filter currencies based on search
-    val filteredCurrencies = remember(searchQuery) {
-        if (searchQuery.isEmpty()) {
-            currencyManager.availableCurrencies
-        } else {
-            currencyManager.availableCurrencies.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                        it.code.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    // Auto-detected currency
-    val autoDetectedCurrency = remember {
-        val code = currencyManager.getDefaultCurrencyCode()
-        currencyManager.availableCurrencies.find { it.code == code }
-    }
-
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Currency Settings", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Currency",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -82,14 +73,14 @@ fun CurrencySettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Current Currency Display
+            // ✅ Current Currency Display
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF6C63FF)
+                    containerColor = AppColors.Purple
                 )
             ) {
                 Column(
@@ -137,8 +128,8 @@ fun CurrencySettingsScreen(
                 }
             }
 
-            // Auto-detect button
-            if (autoDetectedCurrency != null && autoDetectedCurrency.code != selectedCurrency.code) {
+            // ✅ Auto-detect suggestion (only if different from current)
+            if (autoDetectedCurrency.code != selectedCurrency.code) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -146,7 +137,7 @@ fun CurrencySettingsScreen(
                         .clickable { showAutoDetectDialog = true },
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFE8F5E9)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
                     Row(
@@ -158,26 +149,27 @@ fun CurrencySettingsScreen(
                         Icon(
                             Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = Color(0xFF4CAF50),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Auto-detected Currency",
+                                "Detected Currency",
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 "${autoDetectedCurrency.flag} ${autoDetectedCurrency.name}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = null,
-                            tint = Color.Gray
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -185,35 +177,43 @@ fun CurrencySettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Search Bar
+            // ✅ Search Bar
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 placeholder = { Text("Search currencies...") },
                 leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null)
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6C63FF),
-                    unfocusedBorderColor = Color.LightGray
+                    focusedBorderColor = AppColors.Purple,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Currency List
+            // ✅ Currency List
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -225,7 +225,7 @@ fun CurrencySettingsScreen(
                         isSelected = currency.code == selectedCurrency.code,
                         onClick = {
                             scope.launch {
-                                currencyManager.setSelectedCurrency(currency)
+                                viewModel.selectCurrency(currency)
                             }
                         }
                     )
@@ -234,20 +234,28 @@ fun CurrencySettingsScreen(
         }
     }
 
-    // Auto-detect confirmation dialog
-    if (showAutoDetectDialog && autoDetectedCurrency != null) {
+    // ✅ Auto-detect confirmation dialog
+    if (showAutoDetectDialog) {
         AlertDialog(
             onDismissRequest = { showAutoDetectDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.Public,
+                    contentDescription = null,
+                    tint = AppColors.Purple,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
             title = {
                 Text(
-                    "Use Auto-detected Currency?",
+                    "Use Detected Currency?",
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Column {
-                    Text("Based on your device settings, we detected:")
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Based on your location, we detected:")
+                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth(),
@@ -261,27 +269,29 @@ fun CurrencySettingsScreen(
                         Column {
                             Text(
                                 autoDetectedCurrency.name,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
                             )
                             Text(
                                 "${autoDetectedCurrency.code} (${autoDetectedCurrency.symbol})",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
-                        scope.launch {
-                            currencyManager.setSelectedCurrency(autoDetectedCurrency)
-                            showAutoDetectDialog = false
-                        }
-                    }
+                        viewModel.useAutoDetectedCurrency()
+                        showAutoDetectDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Purple
+                    )
                 ) {
-                    Text("Use This Currency", color = Color(0xFF6C63FF))
+                    Text("Use This Currency")
                 }
             },
             dismissButton = {
@@ -293,6 +303,9 @@ fun CurrencySettingsScreen(
     }
 }
 
+/**
+ * ✅ Currency Item Card
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrencyItem(
@@ -306,9 +319,9 @@ fun CurrencyItem(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
-                Color(0xFF6C63FF).copy(alpha = 0.1f)
+                MaterialTheme.colorScheme.primaryContainer
             else
-                Color.White
+                MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isSelected) 4.dp else 2.dp
@@ -334,12 +347,15 @@ fun CurrencyItem(
                     currency.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) Color(0xFF6C63FF) else Color(0xFF1A1A2E)
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     currency.code,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -348,7 +364,10 @@ fun CurrencyItem(
                 currency.symbol,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) Color(0xFF6C63FF) else Color(0xFF1A1A2E)
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurface
             )
 
             // Selected indicator
@@ -357,7 +376,7 @@ fun CurrencyItem(
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint = Color(0xFF6C63FF),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             }

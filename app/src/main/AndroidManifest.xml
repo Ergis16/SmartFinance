@@ -16,8 +16,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.SmartFinance"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
-            <!-- ✅ FIX: android:configChanges prevents activity restart on rotation -->
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

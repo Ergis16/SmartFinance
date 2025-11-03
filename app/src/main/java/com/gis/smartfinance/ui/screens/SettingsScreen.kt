@@ -29,6 +29,7 @@ import com.gis.smartfinance.ui.theme.AppColors
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToCurrency: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
@@ -129,6 +130,37 @@ fun SettingsScreen(
                         onClick = { showClearDialog = true },
                         iconColor = AppColors.Error,
                         enabled = !isClearing
+                    )
+                }
+            }
+            // ✅ ADD THIS NEW CARD (after Appearance card)
+            // Currency Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Text(
+                        "Currency",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Currency Setting
+                    SettingItem(
+                        icon = Icons.Default.AttachMoney,
+                        title = "Currency",
+                        subtitle = "Change your currency",
+                        onClick = onNavigateToCurrency,
+                        iconColor = AppColors.Success,
+                        enabled = true
                     )
                 }
             }

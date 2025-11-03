@@ -17,22 +17,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.TransactionType
-import com.gis.smartfinance.ui.viewmodel.EditTransactionViewModel
-import kotlinx.coroutines.launch
 import com.gis.smartfinance.ui.theme.AppColors
+import com.gis.smartfinance.ui.viewmodel.EditTransactionViewModel
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
+import kotlinx.coroutines.launch
 
 /**
  * Screen for editing existing transaction
- * Similar to AddTransactionScreen but pre-filled with data
+ * ✅ Complete with currency support
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditTransactionScreen(
     transactionId: String,
     onNavigateBack: () -> Unit,
-    viewModel: EditTransactionViewModel = hiltViewModel()
+    viewModel: EditTransactionViewModel = hiltViewModel(),
+    currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED CURRENCY
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ GET CURRENCY
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -62,18 +65,22 @@ fun EditTransactionScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Edit Transaction", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF1A1A2E)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -86,7 +93,7 @@ fun EditTransactionScreen(
                     .padding(paddingValues),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF6C63FF))
+                CircularProgressIndicator(color = AppColors.Purple)
             }
         } else {
             Column(
@@ -97,18 +104,20 @@ fun EditTransactionScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Transaction Type Selection
+                // Transaction Type Selection Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "Transaction Type",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(
@@ -134,8 +143,8 @@ fun EditTransactionScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFFFEBEE),
-                                    selectedLabelColor = Color(0xFFE53935)
+                                    selectedContainerColor = AppColors.ErrorLight,
+                                    selectedLabelColor = AppColors.Error
                                 )
                             )
 
@@ -158,62 +167,72 @@ fun EditTransactionScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE8F5E9),
-                                    selectedLabelColor = Color(0xFF43A047)
+                                    selectedContainerColor = AppColors.SuccessLight,
+                                    selectedLabelColor = AppColors.Success
                                 )
                             )
                         }
                     }
                 }
 
-                // Amount Input
+                // Amount Input Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "Amount",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
                             value = uiState.amount,
                             onValueChange = { newValue ->
+                                // Only allow valid decimal numbers
                                 if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
                                     viewModel.updateAmount(newValue)
                                 }
                             },
                             label = { Text("Enter amount") },
-                            prefix = { Text("Lek ", fontWeight = FontWeight.Bold) },
+                            prefix = {
+                                Text(
+                                    "${currency.symbol} ", // ✅ USES CURRENCY SYMBOL
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal
                             ),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF6C63FF),
-                                focusedLabelColor = Color(0xFF6C63FF)
+                                focusedBorderColor = AppColors.Purple,
+                                focusedLabelColor = AppColors.Purple
                             )
                         )
                     }
                 }
 
-                // Description Input
+                // Description Input Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "Description",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
@@ -223,25 +242,27 @@ fun EditTransactionScreen(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF6C63FF),
-                                focusedLabelColor = Color(0xFF6C63FF)
+                                focusedBorderColor = AppColors.Purple,
+                                focusedLabelColor = AppColors.Purple
                             )
                         )
                     }
                 }
 
-                // Category Selection
+                // Category Selection Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "Category",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -275,12 +296,13 @@ fun EditTransactionScreen(
                                             modifier = Modifier.weight(1f),
                                             colors = FilterChipDefaults.filterChipColors(
                                                 selectedContainerColor = if (uiState.type == TransactionType.EXPENSE)
-                                                    Color(0xFFFFEBEE) else Color(0xFFE8F5E9),
+                                                    AppColors.ErrorLight else AppColors.SuccessLight,
                                                 selectedLabelColor = if (uiState.type == TransactionType.EXPENSE)
-                                                    Color(0xFFE53935) else Color(0xFF43A047)
+                                                    AppColors.Error else AppColors.Success
                                             )
                                         )
                                     }
+                                    // Fill empty space if odd number of categories
                                     if (row.size == 1) {
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
@@ -292,7 +314,7 @@ fun EditTransactionScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Save Button
+                // Save Changes Button
                 Button(
                     onClick = {
                         viewModel.saveTransaction(
@@ -314,7 +336,7 @@ fun EditTransactionScreen(
                         .height(56.dp),
                     enabled = !uiState.isLoading,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6C63FF)
+                        containerColor = AppColors.Purple
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {

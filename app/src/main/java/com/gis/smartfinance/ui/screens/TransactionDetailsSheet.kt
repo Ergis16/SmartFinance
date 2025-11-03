@@ -27,6 +27,7 @@ import java.util.*
 @Composable
 fun TransactionDetailsSheet(
     transaction: FinancialTransaction,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
     onDismiss: () -> Unit,
     onSave: (FinancialTransaction) -> Unit,
     onDelete: () -> Unit
@@ -83,6 +84,7 @@ fun TransactionDetailsSheet(
                     onTypeChange = { editedType = it },
                     category = editedCategory,
                     onCategoryChange = { editedCategory = it },
+                    currency = currency, // ✅ PASS CURRENCY
                     onSave = {
                         val amountDouble = editedAmount.toDoubleOrNull()
                         if (amountDouble != null && amountDouble > 0 &&
@@ -109,6 +111,7 @@ fun TransactionDetailsSheet(
             } else {
                 ViewModeContent(
                     transaction = transaction,
+                    currency = currency, // ✅ PASS CURRENCY
                     onEdit = { isEditMode = true },
                     onDelete = { showDeleteDialog = true }
                 )
@@ -125,7 +128,10 @@ fun TransactionDetailsSheet(
             title = { Text("Delete Transaction?", fontWeight = FontWeight.Bold) },
             text = { Text("This will permanently delete this transaction. This action cannot be undone.") },
             confirmButton = {
-                Button(onClick = { showDeleteDialog = false; onDelete() }, colors = ButtonDefaults.buttonColors(containerColor = AppColors.Error)) {
+                Button(
+                    onClick = { showDeleteDialog = false; onDelete() },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Error)
+                ) {
                     Text("Delete")
                 }
             },
@@ -135,7 +141,12 @@ fun TransactionDetailsSheet(
 }
 
 @Composable
-private fun ViewModeContent(transaction: FinancialTransaction, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ViewModeContent(
+    transaction: FinancialTransaction,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -143,7 +154,10 @@ private fun ViewModeContent(transaction: FinancialTransaction, onEdit: () -> Uni
             containerColor = if (transaction.type == TransactionType.EXPENSE) AppColors.ErrorLight else AppColors.SuccessLight
         )
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 if (transaction.type == TransactionType.EXPENSE) "Expense" else "Income",
                 style = MaterialTheme.typography.labelMedium,
@@ -151,7 +165,7 @@ private fun ViewModeContent(transaction: FinancialTransaction, onEdit: () -> Uni
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${String.format("%.2f", transaction.amount)} Lek",
+                "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${currency.symbol} ${String.format("%.2f", transaction.amount)}", // ✅ USES CURRENCY
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = if (transaction.type == TransactionType.EXPENSE) AppColors.Error else AppColors.Success
@@ -170,13 +184,26 @@ private fun ViewModeContent(transaction: FinancialTransaction, onEdit: () -> Uni
 
     Spacer(modifier = Modifier.height(32.dp))
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onEdit, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple), shape = RoundedCornerShape(12.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Button(
+            onClick = onEdit,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple),
+            shape = RoundedCornerShape(12.dp)
+        ) {
             Icon(Icons.Default.Edit, null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Edit", fontWeight = FontWeight.Bold)
         }
-        OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Error), shape = RoundedCornerShape(12.dp)) {
+        OutlinedButton(
+            onClick = onDelete,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Error),
+            shape = RoundedCornerShape(12.dp)
+        ) {
             Icon(Icons.Default.Delete, null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Delete", fontWeight = FontWeight.Bold)
@@ -186,41 +213,121 @@ private fun ViewModeContent(transaction: FinancialTransaction, onEdit: () -> Uni
 
 @Composable
 private fun EditModeContent(
-    amount: String, onAmountChange: (String) -> Unit,
-    description: String, onDescriptionChange: (String) -> Unit,
-    type: TransactionType, onTypeChange: (TransactionType) -> Unit,
-    category: String, onCategoryChange: (String) -> Unit,
-    onSave: () -> Unit, onCancel: () -> Unit
+    amount: String,
+    onAmountChange: (String) -> Unit,
+    description: String,
+    onDescriptionChange: (String) -> Unit,
+    type: TransactionType,
+    onTypeChange: (TransactionType) -> Unit,
+    category: String,
+    onCategoryChange: (String) -> Unit,
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    onSave: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val categories = if (type == TransactionType.EXPENSE)
         listOf("Food & Dining", "Transport", "Shopping", "Entertainment", "Bills", "Healthcare", "Education", "Other")
     else listOf("Salary", "Freelance", "Investment", "Gift", "Other")
 
-    Text("Type", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    Text(
+        "Type",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
     Spacer(modifier = Modifier.height(8.dp))
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        FilterChip(selected = type == TransactionType.EXPENSE, onClick = { onTypeChange(TransactionType.EXPENSE) }, label = { Text("Expense") }, modifier = Modifier.weight(1f), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.ErrorLight, selectedLabelColor = AppColors.Error))
-        FilterChip(selected = type == TransactionType.INCOME, onClick = { onTypeChange(TransactionType.INCOME) }, label = { Text("Income") }, modifier = Modifier.weight(1f), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.SuccessLight, selectedLabelColor = AppColors.Success))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        FilterChip(
+            selected = type == TransactionType.EXPENSE,
+            onClick = { onTypeChange(TransactionType.EXPENSE) },
+            label = { Text("Expense") },
+            modifier = Modifier.weight(1f),
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = AppColors.ErrorLight,
+                selectedLabelColor = AppColors.Error
+            )
+        )
+        FilterChip(
+            selected = type == TransactionType.INCOME,
+            onClick = { onTypeChange(TransactionType.INCOME) },
+            label = { Text("Income") },
+            modifier = Modifier.weight(1f),
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = AppColors.SuccessLight,
+                selectedLabelColor = AppColors.Success
+            )
+        )
     }
 
     Spacer(modifier = Modifier.height(20.dp))
-    Text("Amount", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    Text(
+        "Amount",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
     Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(value = amount, onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) onAmountChange(it) }, label = { Text("Amount") }, prefix = { Text("Lek ", fontWeight = FontWeight.Bold) }, modifier = Modifier.fillMaxWidth(), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Purple, focusedLabelColor = AppColors.Purple))
+    OutlinedTextField(
+        value = amount,
+        onValueChange = { if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) onAmountChange(it) },
+        label = { Text("Amount") },
+        prefix = { Text("${currency.symbol} ", fontWeight = FontWeight.Bold) }, // ✅ USES CURRENCY
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AppColors.Purple,
+            focusedLabelColor = AppColors.Purple
+        )
+    )
 
     Spacer(modifier = Modifier.height(20.dp))
-    Text("Description", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    Text(
+        "Description",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
     Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(value = description, onValueChange = onDescriptionChange, label = { Text("Description") }, modifier = Modifier.fillMaxWidth(), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Purple, focusedLabelColor = AppColors.Purple))
+    OutlinedTextField(
+        value = description,
+        onValueChange = onDescriptionChange,
+        label = { Text("Description") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AppColors.Purple,
+            focusedLabelColor = AppColors.Purple
+        )
+    )
 
     Spacer(modifier = Modifier.height(20.dp))
-    Text("Category", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    Text(
+        "Category",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
     Spacer(modifier = Modifier.height(8.dp))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         categories.chunked(2).forEach { row ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 row.forEach { cat ->
-                    FilterChip(selected = category == cat, onClick = { onCategoryChange(cat) }, label = { Text(cat, fontSize = 12.sp, fontWeight = if (category == cat) FontWeight.Bold else FontWeight.Normal) }, modifier = Modifier.weight(1f), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = if (type == TransactionType.EXPENSE) AppColors.ErrorLight else AppColors.SuccessLight, selectedLabelColor = if (type == TransactionType.EXPENSE) AppColors.Error else AppColors.Success))
+                    FilterChip(
+                        selected = category == cat,
+                        onClick = { onCategoryChange(cat) },
+                        label = { Text(cat, fontSize = 12.sp, fontWeight = if (category == cat) FontWeight.Bold else FontWeight.Normal) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = if (type == TransactionType.EXPENSE) AppColors.ErrorLight else AppColors.SuccessLight,
+                            selectedLabelColor = if (type == TransactionType.EXPENSE) AppColors.Error else AppColors.Success
+                        )
+                    )
                 }
                 if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
             }
@@ -228,9 +335,23 @@ private fun EditModeContent(
     }
 
     Spacer(modifier = Modifier.height(32.dp))
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("Cancel", fontWeight = FontWeight.Bold) }
-        Button(onClick = onSave, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple), shape = RoundedCornerShape(12.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedButton(
+            onClick = onCancel,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Cancel", fontWeight = FontWeight.Bold)
+        }
+        Button(
+            onClick = onSave,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple),
+            shape = RoundedCornerShape(12.dp)
+        ) {
             Icon(Icons.Default.Check, null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Save", fontWeight = FontWeight.Bold)
@@ -239,16 +360,38 @@ private fun EditModeContent(
 }
 
 @Composable
-private fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+private fun DetailRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(icon, null, tint = AppColors.Purple, modifier = Modifier.size(20.dp))
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }

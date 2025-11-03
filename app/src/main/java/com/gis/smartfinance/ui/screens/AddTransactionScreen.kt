@@ -19,15 +19,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.data.model.TransactionType
 import com.gis.smartfinance.ui.theme.AppColors
 import com.gis.smartfinance.ui.viewmodel.AddTransactionViewModel
+import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
-    viewModel: AddTransactionViewModel = hiltViewModel()
+    viewModel: AddTransactionViewModel = hiltViewModel(),
+    currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -80,7 +83,6 @@ fun AddTransactionScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Transaction Type Selection
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -153,7 +155,6 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Amount Input
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -179,7 +180,7 @@ fun AddTransactionScreen(
                             }
                         },
                         label = { Text("Enter amount") },
-                        prefix = { Text("Lek", fontWeight = FontWeight.Bold) },
+                        prefix = { Text("${currency.symbol} ", fontWeight = FontWeight.Bold) }, // ✅ USES CURRENCY
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Decimal
                         ),
@@ -193,7 +194,6 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Description Input
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -225,7 +225,6 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Category Selection
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -293,7 +292,6 @@ fun AddTransactionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Save Button
             Button(
                 onClick = {
                     viewModel.saveTransaction(

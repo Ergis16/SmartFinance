@@ -3,7 +3,8 @@ package com.gis.smartfinance.di
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase // ✅ ADD THIS IMPORT
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.gis.smartfinance.data.CurrencyManager  // ✅ ADD THIS
 import com.gis.smartfinance.data.database.AppDatabase
 import com.gis.smartfinance.data.dao.TransactionDao
 import com.gis.smartfinance.data.ThemeManager
@@ -29,12 +30,9 @@ object DatabaseModule {
             "smartfinance_database"
         )
             .fallbackToDestructiveMigration()
-            // ✅ ADD THIS CALLBACK - It runs when database opens
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     super.onOpen(db)
-                    // This does nothing harmful - just logs that DB is open
-                    // We removed the DELETE statement to keep your old data
                 }
             })
             .build()
@@ -52,5 +50,14 @@ object DatabaseModule {
         @ApplicationContext context: Context
     ): ThemeManager {
         return ThemeManager(context)
+    }
+
+    // ✅ ADD THIS
+    @Provides
+    @Singleton
+    fun provideCurrencyManager(
+        @ApplicationContext context: Context
+    ): CurrencyManager {
+        return CurrencyManager(context)
     }
 }
