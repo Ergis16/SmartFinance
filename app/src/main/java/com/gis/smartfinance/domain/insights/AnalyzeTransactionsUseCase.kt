@@ -1,6 +1,5 @@
 package com.gis.smartfinance.domain.insights
 
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
@@ -31,27 +30,19 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Use Case: Analyze Transactions
- *
- * Single Responsibility: Generate financial insights from transaction data
- *
- * This is a "Use Case" in Clean Architecture:
- * - Contains business logic
- * - Independent of UI (no Compose dependencies)
- * - Testable (can mock inputs)
- * - Reusable (can be called from anywhere)
+ * ✅ FIXED: Now accepts currency symbol to format amounts correctly
  */
 class AnalyzeTransactionsUseCase @Inject constructor() {
 
     /**
-     * Main entry point
-     * Invoked with operator function syntax: useCase(transactions, ...)
+     * ✅ UPDATED: Added currencySymbol parameter
      */
     operator fun invoke(
         transactions: List<FinancialTransaction>,
         totalIncome: Double,
         totalExpense: Double,
-        balance: Double
+        balance: Double,
+        currencySymbol: String = "$" //  but can be overridden
     ): InsightsAnalysis {
 
         // Early return for empty data
@@ -66,14 +57,18 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         // Generate insights based on data quality
         return when (dataQuality) {
             DataQuality.INSUFFICIENT -> generateInsufficientDataInsights(daysOfData)
-            else -> generateFullInsights(transactions, totalIncome, totalExpense, balance, daysOfData, dataQuality)
+            else -> generateFullInsights(
+                transactions,
+                totalIncome,
+                totalExpense,
+                balance,
+                daysOfData,
+                dataQuality,
+                currencySymbol // ✅ PASS CURRENCY
+            )
         }
     }
 
-    /**
-     * Calculate days of data available
-     * With proper validation!
-     */
     private fun calculateDaysOfData(transactions: List<FinancialTransaction>): Int {
         if (transactions.isEmpty()) return 0
 
@@ -81,19 +76,12 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         val newest = transactions.maxByOrNull { it.date.time }?.date ?: return 0
 
         val diffInMillis = newest.time - oldest.time
-
-        // Validate: prevent negative or absurd values
         if (diffInMillis < 0) return 0
 
         val days = TimeUnit.MILLISECONDS.toDays(diffInMillis).toInt() + 1
-
-        // Coerce to reasonable range (max 10 years)
         return days.coerceIn(0, 3650)
     }
 
-    /**
-     * Determine data quality level
-     */
     private fun determineDataQuality(daysOfData: Int): DataQuality {
         return when {
             daysOfData < MIN_DAYS_FOR_BASIC_INSIGHTS -> DataQuality.INSUFFICIENT
@@ -103,9 +91,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         }
     }
 
-    /**
-     * Generate insights when we don't have enough data
-     */
     private fun generateInsufficientDataInsights(daysOfData: Int): InsightsAnalysis {
         val daysNeeded = MIN_DAYS_FOR_BASIC_INSIGHTS - daysOfData
 
@@ -140,19 +125,17 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         )
     }
 
-    /**
-     * Generate full insights with enough data
-     */
+
     private fun generateFullInsights(
         transactions: List<FinancialTransaction>,
         totalIncome: Double,
         totalExpense: Double,
         balance: Double,
         daysOfData: Int,
-        dataQuality: DataQuality
+        dataQuality: DataQuality,
+        currencySymbol: String // ✅ NEW
     ): InsightsAnalysis {
 
-        // Calculate projections
         val dailyExpense = if (daysOfData > 0) totalExpense / daysOfData else 0.0
         val dailyIncome = if (daysOfData > 0) totalIncome / daysOfData else 0.0
 
@@ -160,7 +143,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         val projectedMonthlyIncome = dailyIncome * 30
         val projectedMonthlyBalance = projectedMonthlyIncome - projectedMonthlyExpense
 
-        // Group expenses by category
         val expensesByCategory = transactions
             .filter { it.type == TransactionType.EXPENSE }
             .groupBy { it.category }
@@ -168,7 +150,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             .toList()
             .sortedByDescending { it.second }
 
-        // Calculate health score
         val scoreBreakdown = calculateHealthScore(
             projectedMonthlyIncome,
             projectedMonthlyExpense,
@@ -185,36 +166,34 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             else -> "Your finances need urgent attention."
         }
 
-        // Generate insights
         val insights = mutableListOf<Insight>()
         val recommendations = mutableListOf<Recommendation>()
         val patterns = mutableListOf<SpendingPattern>()
 
-        // Analyze savings rate
+        // ✅ PASS CURRENCY to all analysis functions
         analyzeSavingsRate(
             projectedMonthlyIncome,
             projectedMonthlyBalance,
             dailyIncome,
-            insights
+            insights,
+            currencySymbol
         )
 
-        // Analyze categories
         if (daysOfData >= MIN_DAYS_FOR_FULL_INSIGHTS) {
             analyzeCategories(
                 expensesByCategory,
                 totalExpense,
                 daysOfData,
                 insights,
-                recommendations
+                recommendations,
+                currencySymbol
             )
         }
 
-        // Analyze spending trends
         if (daysOfData >= MIN_DAYS_FOR_PATTERNS) {
-            analyzeSpendingTrends(transactions, daysOfData, patterns)
+            analyzeSpendingTrends(transactions, daysOfData, patterns, currencySymbol)
         }
 
-        // Check emergency fund
         analyzeEmergencyFund(
             balance,
             projectedMonthlyExpense,
@@ -223,7 +202,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             recommendations
         )
 
-        // Calculate total savings potential
         val savingsPotential = insights.sumOf { it.savingAmount }
 
         return InsightsAnalysis(
@@ -240,13 +218,14 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
     }
 
     /**
-     * Analyze savings rate
+     * ✅ UPDATED: Added currencySymbol parameter
      */
     private fun analyzeSavingsRate(
         projectedMonthlyIncome: Double,
         projectedMonthlyBalance: Double,
         dailyIncome: Double,
-        insights: MutableList<Insight>
+        insights: MutableList<Insight>,
+        currencySymbol: String // ✅ NEW
     ) {
         if (projectedMonthlyIncome <= 0) return
 
@@ -257,7 +236,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                 insights.add(
                     Insight(
                         title = "Spending Exceeds Income",
-                        description = "You're on track to overspend by €${String.format("%.2f", abs(projectedMonthlyBalance))} monthly",
+                        description = "You're on track to overspend by $currencySymbol ${String.format("%.2f", abs(projectedMonthlyBalance))} monthly", // ✅ FIXED
                         priority = InsightPriority.URGENT,
                         priorityColor = Color(0xFFD32F2F),
                         icon = Icons.Default.Error,
@@ -267,7 +246,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                         actionItems = listOf(
                             "Review largest expense categories",
                             "Cancel unused subscriptions",
-                            "Set daily spending limit: €${String.format("%.2f", dailyIncome * 0.8)}"
+                            "Set daily spending limit: $currencySymbol ${String.format("%.2f", dailyIncome * 0.8)}" // ✅ FIXED
                         )
                     )
                 )
@@ -288,7 +267,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                         iconBackground = Color(0xFFFFEBEE),
                         savingAmount = targetSavings - currentSavings,
                         actionItems = listOf(
-                            "Set up automatic savings: €${String.format("%.2f", projectedMonthlyIncome * 0.1)}",
+                            "Set up automatic savings: $currencySymbol ${String.format("%.2f", projectedMonthlyIncome * 0.1)}", // ✅ FIXED
                             "Try 50/30/20 budget rule"
                         )
                     )
@@ -312,14 +291,15 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
     }
 
     /**
-     * Analyze category spending
+     * ✅ UPDATED: Added currencySymbol parameter
      */
     private fun analyzeCategories(
         expensesByCategory: List<Pair<String, Double>>,
         totalExpense: Double,
         daysOfData: Int,
         insights: MutableList<Insight>,
-        recommendations: MutableList<Recommendation>
+        recommendations: MutableList<Recommendation>,
+        currencySymbol: String // ✅ NEW
     ) {
         expensesByCategory.forEach { (category, amount) ->
             val dailyAverage = amount / daysOfData
@@ -332,7 +312,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                         insights.add(
                             Insight(
                                 title = "High Food Spending",
-                                description = "€${String.format("%.2f", projectedMonthly)}/month on dining",
+                                description = "$currencySymbol ${String.format("%.2f", projectedMonthly)}/month on dining", // ✅ FIXED
                                 priority = InsightPriority.MEDIUM,
                                 priorityColor = Color(0xFFFFA726),
                                 icon = Icons.Default.Restaurant,
@@ -342,7 +322,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                                 actionItems = listOf(
                                     "Cook at home 3 more times per week",
                                     "Meal prep on Sundays",
-                                    "Budget: €${String.format("%.2f", projectedMonthly * 0.7)}"
+                                    "Budget: $currencySymbol ${String.format("%.2f", projectedMonthly * 0.7)}" // ✅ FIXED
                                 )
                             )
                         )
@@ -380,7 +360,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                                 icon = Icons.Default.DirectionsBus,
                                 iconColor = Color(0xFF1976D2),
                                 backgroundColor = Color(0xFFE3F2FD),
-                                expectedImpact = "Save €${String.format("%.2f", projectedMonthly * TRANSPORT_SAVINGS_POTENTIAL)}/month"
+                                expectedImpact = "Save $currencySymbol ${String.format("%.2f", projectedMonthly * TRANSPORT_SAVINGS_POTENTIAL)}/month" // ✅ FIXED
                             )
                         )
                     }
@@ -390,12 +370,13 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
     }
 
     /**
-     * Analyze spending trends
+     * ✅ UPDATED: Added currencySymbol parameter
      */
     private fun analyzeSpendingTrends(
         transactions: List<FinancialTransaction>,
         daysOfData: Int,
-        patterns: MutableList<SpendingPattern>
+        patterns: MutableList<SpendingPattern>,
+        currencySymbol: String // ✅ NEW
     ) {
         val recentDays = minOf(7, daysOfData / 2)
         val cutoffDate = Date(Date().time - recentDays * 24L * 60 * 60 * 1000)
@@ -419,7 +400,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                     SpendingPattern(
                         type = PatternType.INCREASING,
                         description = "Spending increased ${((recentDailyAvg / olderDailyAvg - 1) * 100).roundToInt()}% recently",
-                        impact = "Adds €${String.format("%.2f", (recentDailyAvg - olderDailyAvg) * 30)} monthly"
+                        impact = "Adds $currencySymbol ${String.format("%.2f", (recentDailyAvg - olderDailyAvg) * 30)} monthly" // ✅ FIXED
                     )
                 )
             }
@@ -429,7 +410,7 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
                     SpendingPattern(
                         type = PatternType.DECREASING,
                         description = "Spending decreased ${((1 - recentDailyAvg / olderDailyAvg) * 100).roundToInt()}%",
-                        impact = "Saves €${String.format("%.2f", (olderDailyAvg - recentDailyAvg) * 30)} monthly"
+                        impact = "Saves $currencySymbol ${String.format("%.2f", (olderDailyAvg - recentDailyAvg) * 30)} monthly" // ✅ FIXED
                     )
                 )
             }
@@ -445,9 +426,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         }
     }
 
-    /**
-     * Analyze emergency fund status
-     */
     private fun analyzeEmergencyFund(
         balance: Double,
         projectedMonthlyExpense: Double,
@@ -503,9 +481,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         }
     }
 
-    /**
-     * Calculate health score breakdown
-     */
     private fun calculateHealthScore(
         monthlyIncome: Double,
         monthlyExpenses: Double,
@@ -513,14 +488,12 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         daysOfData: Int
     ): ScoreBreakdown {
 
-        // Adjust confidence based on data availability
         val dataMultiplier = when {
             daysOfData < MIN_DAYS_FOR_FULL_INSIGHTS -> DATA_MULTIPLIER_1_WEEK
             daysOfData < MIN_DAYS_FOR_EXCELLENT -> DATA_MULTIPLIER_1_MONTH
             else -> DATA_MULTIPLIER_FULL
         }
 
-        // Savings score
         val savingsRate = if (monthlyIncome > 0) {
             (monthlyIncome - monthlyExpenses) / monthlyIncome
         } else 0.0
@@ -532,7 +505,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             else -> 0.0
         } * dataMultiplier).toInt().coerceIn(0, 100)
 
-        // Spending score
         val spendingRatio = if (monthlyIncome > 0) monthlyExpenses / monthlyIncome else 1.0
         val spendingScore = (when {
             spendingRatio <= 0.70 -> 100.0
@@ -541,7 +513,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             else -> 20.0
         } * dataMultiplier).toInt().coerceIn(0, 100)
 
-        // Income score
         val incomeScore = when {
             monthlyIncome <= 0 -> 0
             monthlyIncome < 1000 -> (monthlyIncome / 1000 * 50).toInt()
@@ -549,7 +520,6 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
             else -> 80 + minOf(20.0, (monthlyIncome - 3000) / 1000 * 5).toInt()
         }.coerceIn(0, 100)
 
-        // Balance score
         val monthsOfExpenses = if (monthlyExpenses > 0) currentBalance / monthlyExpenses else 0.0
         val balanceScore = (when {
             monthsOfExpenses >= 6 -> 100.0
@@ -562,16 +532,3 @@ class AnalyzeTransactionsUseCase @Inject constructor() {
         return ScoreBreakdown(savingsScore, spendingScore, incomeScore, balanceScore)
     }
 }
-
-/**
- * WHAT THIS ACHIEVES:
- *
- * 1. Single Responsibility: Only analyzes transactions
- * 2. Testable: Pure function, easy to test
- * 3. Reusable: Can be used in multiple places
- * 4. No UI coupling: Doesn't know about Compose
- * 5. Performance: Runs on background thread via ViewModel
- * 6. Maintainable: Clear structure, easy to modify
- * 7. Type Safe: All constants named and typed
- * 8. Validated: Proper bounds checking on all calculations
- */
