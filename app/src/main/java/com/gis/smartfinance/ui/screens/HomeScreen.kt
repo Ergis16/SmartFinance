@@ -1,6 +1,7 @@
 package com.gis.smartfinance.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,12 +24,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.gis.smartfinance.ui.components.AppDrawer
 import com.gis.smartfinance.data.model.FinancialTransaction
 import com.gis.smartfinance.data.model.TransactionType
 import com.gis.smartfinance.ui.theme.AppColors
+import com.gis.smartfinance.ui.theme.*
 import com.gis.smartfinance.ui.viewmodel.HomeViewModel
 import com.gis.smartfinance.ui.viewmodel.HomeUiState
 import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
+import com.gis.smartfinance.utils.formatWithCurrency
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,26 +48,65 @@ fun HomeScreen(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToRecurringTransactions: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     currencyViewModel: CurrencyViewModel = hiltViewModel() // ✅ ADDED
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
+    val categoryNames by viewModel.categoryNames.collectAsState()
     var selectedTransaction by remember { mutableStateOf<FinancialTransaction?>(null) }
     var showDetailsSheet by remember { mutableStateOf(false) }
+    
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawer(
+                currentRoute = "home",
+                onNavigateToRecurringTransactions = onNavigateToRecurringTransactions,
+                onCloseDrawer = { scope.launch { drawerState.close() } }
+            )
+        }
+    ) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                if (drawerState.isClosed) {
+                                    drawerState.open()
+                                } else {
+                                    drawerState.close()
+                                }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
                 title = {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
                     Text(
-                        "SmartFinance",
+                        "SmartFin",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                                    }
                 },
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
@@ -79,8 +127,8 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddTransaction,
-                containerColor = AppColors.Purple,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .padding(16.dp)
                     .size(64.dp)
@@ -102,7 +150,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = AppColors.Purple)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Loading...",
@@ -157,6 +205,7 @@ fun HomeScreen(
                             AnimatedTransactionItem(
                                 transaction = transaction,
                                 currency = currency, // ✅ PASS CURRENCY
+                                categoryNames = categoryNames,
                                 onClick = {
                                     selectedTransaction = transaction
                                     showDetailsSheet = true
@@ -207,6 +256,7 @@ fun HomeScreen(
         TransactionDetailsSheet(
             transaction = selectedTransaction!!,
             currency = currency, // ✅ PASS CURRENCY
+            categoryName = categoryNames[selectedTransaction!!.category] ?: selectedTransaction!!.category,
             onDismiss = {
                 showDetailsSheet = false
                 selectedTransaction = null
@@ -223,6 +273,7 @@ fun HomeScreen(
             }
         )
     }
+    }
 }
 
 @Composable
@@ -232,12 +283,11 @@ fun ModernBalanceCardFixed(
     balance: Double,
     currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
 ) {
-    val isDark = MaterialTheme.colorScheme.background == AppColors.DarkBackground
-
-    val gradientColors = if (isDark) {
+    // Gradient colors adapt to theme
+    val gradientColors = if (isSystemInDarkTheme()) {
         listOf(
-            Color(0xFF4F47B8),
-            Color(0xFF3D2F9F)
+            AppColors.PurpleDarkMode,
+            AppColors.PurpleDarkDarkMode
         )
     } else {
         listOf(
@@ -277,7 +327,7 @@ fun ModernBalanceCardFixed(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     AutoSizeText(
-                        text = "${currency.symbol} ${String.format("%,.2f", balance)}", // ✅ USES CURRENCY
+                        text = balance.formatWithCurrency(currency),
                         maxLines = 1,
                         minFontSize = 20.sp,
                         maxFontSize = 36.sp,
@@ -307,7 +357,7 @@ fun ModernBalanceCardFixed(
                             )
                         }
                         AutoSizeText(
-                            text = "${currency.symbol} ${String.format("%,.2f", totalIncome)}", // ✅ USES CURRENCY
+                            text = totalIncome.formatWithCurrency(currency),
                             maxLines = 1,
                             minFontSize = 12.sp,
                             maxFontSize = 16.sp,
@@ -336,7 +386,7 @@ fun ModernBalanceCardFixed(
                             )
                         }
                         AutoSizeText(
-                            text = "${currency.symbol} ${String.format("%,.2f", totalExpense)}", // ✅ USES CURRENCY
+                            text = totalExpense.formatWithCurrency(currency),
                             maxLines = 1,
                             minFontSize = 12.sp,
                             maxFontSize = 16.sp,
@@ -401,12 +451,10 @@ fun ModernQuickActions(
     onNavigateToInsights: () -> Unit,
     onNavigateToAnalytics: () -> Unit
 ) {
-    val isDark = MaterialTheme.colorScheme.background == AppColors.DarkBackground
-
-    val insightsBg = if (isDark) Color(0xFF4A3800) else AppColors.WarningLight
-    val insightsIcon = if (isDark) Color(0xFFFFB74D) else AppColors.Warning
-    val analyticsBg = if (isDark) Color(0xFF1B5E20) else AppColors.SuccessLight
-    val analyticsIcon = if (isDark) Color(0xFF66BB6A) else AppColors.Success
+    val insightsBg = getSemanticBackgroundColor(AppColors.WarningLight, AppColors.WarningDarkBg)
+    val insightsIcon = getSemanticColor(AppColors.Warning, AppColors.WarningDark)
+    val analyticsBg = getSemanticBackgroundColor(AppColors.SuccessLight, AppColors.SuccessDarkBg)
+    val analyticsIcon = getSemanticColor(AppColors.Success, AppColors.SuccessDark)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -493,6 +541,7 @@ fun ModernQuickActions(
 fun AnimatedTransactionItem(
     transaction: FinancialTransaction,
     currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    categoryNames: Map<String, String>,
     onClick: () -> Unit
 ) {
     AnimatedVisibility(
@@ -529,17 +578,15 @@ fun AnimatedTransactionItem(
                             .background(
                                 when (transaction.type) {
                                     TransactionType.EXPENSE ->
-                                        if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                        getSemanticBackgroundColor(
+                                            AppColors.ErrorLight,
                                             AppColors.ErrorDarkBg
-                                        } else {
-                                            AppColors.ErrorLight
-                                        }
+                                        )
                                     TransactionType.INCOME ->
-                                        if (MaterialTheme.colorScheme.background == AppColors.DarkBackground) {
+                                        getSemanticBackgroundColor(
+                                            AppColors.SuccessLight,
                                             AppColors.SuccessDarkBg
-                                        } else {
-                                            AppColors.SuccessLight
-                                        }
+                                        )
                                 }
                             ),
                         contentAlignment = Alignment.Center
@@ -583,7 +630,7 @@ fun AnimatedTransactionItem(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${transaction.category} • ${formatDate(transaction.date)}",
+                            text = "${categoryNames[transaction.category] ?: transaction.category} • ${formatDate(transaction.date)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -591,9 +638,7 @@ fun AnimatedTransactionItem(
                 }
 
                 Text(
-                    text = "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${
-                        String.format("%.2f", transaction.amount)
-                    } ${currency.symbol}", // ✅ USES CURRENCY
+                    text = "${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${transaction.amount.formatWithCurrency(currency)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = when (transaction.type) {
@@ -652,8 +697,8 @@ fun EmptyStateCard() {
                 textAlign = TextAlign.Center
             )
         }
-    }
 }
+    }
 
 fun formatDate(date: Date): String {
     val formatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())

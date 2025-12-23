@@ -1,6 +1,7 @@
 package com.gis.smartfinance.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,9 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.gis.smartfinance.ui.components.EmptyChartIllustration
 import com.gis.smartfinance.ui.components.EmptyStateCard
+import com.gis.smartfinance.ui.components.ThemedIconBackground
 import com.gis.smartfinance.ui.theme.AppColors
+import com.gis.smartfinance.ui.theme.*
 import com.gis.smartfinance.ui.viewmodel.AnalyticsViewModel
 import com.gis.smartfinance.ui.viewmodel.CurrencyViewModel
+import com.gis.smartfinance.utils.formatWithCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,12 +40,7 @@ fun AnalyticsScreen(
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpense by viewModel.totalExpense.collectAsState()
     val currency by currencyViewModel.selectedCurrency.collectAsState() // ✅ ADDED
-
-    val isLoading by remember {
-        derivedStateOf {
-            expensesByCategory.isEmpty() && totalExpense == 0.0
-        }
-    }
+    val categoryNames by viewModel.categoryNames.collectAsState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -64,9 +63,7 @@ fun AnalyticsScreen(
             )
         }
     ) { paddingValues ->
-        if (isLoading) {
-            LoadingAnalytics(Modifier.padding(paddingValues))
-        } else if (expensesByCategory.isEmpty()) {
+        if (expensesByCategory.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -87,25 +84,8 @@ fun AnalyticsScreen(
                 totalIncome = totalIncome,
                 totalExpense = totalExpense,
                 currency = currency, // ✅ PASS CURRENCY
+                categoryNames = categoryNames,
                 modifier = Modifier.padding(paddingValues)
-            )
-        }
-    }
-}
-
-@Composable
-private fun LoadingAnalytics(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = AppColors.Purple)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "Calculating analytics...",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -117,6 +97,7 @@ private fun AnalyticsContent(
     totalIncome: Double,
     totalExpense: Double,
     currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    categoryNames: Map<String, String>,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -156,7 +137,10 @@ private fun AnalyticsContent(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isPositive) AppColors.SuccessLight else AppColors.ErrorLight
+                    containerColor = getSemanticBackgroundColor(
+                        if (isPositive) AppColors.SuccessLight else AppColors.ErrorLight,
+                        if (isPositive) AppColors.SuccessDarkBg else AppColors.ErrorDarkBg
+                    )
                 )
             ) {
                 Row(
@@ -217,7 +201,8 @@ private fun AnalyticsContent(
                     Spacer(modifier = Modifier.height(16.dp))
                     CategoryLegend(
                         data = expensesByCategory,
-                        currency = currency // ✅ PASS CURRENCY
+                        currency = currency, // ✅ PASS CURRENCY
+                        categoryNames = categoryNames
                     )
                 }
             }
@@ -244,7 +229,7 @@ private fun AnalyticsContent(
 
                     expensesByCategory.entries.forEachIndexed { index, (category, amount) ->
                         CategoryRow(
-                            category = category,
+                            category = categoryNames[category] ?: category,
                             amount = amount,
                             currency = currency, // ✅ PASS CURRENCY
                             percentage = if (totalExpense > 0) {
@@ -264,7 +249,8 @@ private fun AnalyticsContent(
                 QuickInsightsCard(
                     expensesByCategory = expensesByCategory,
                     totalExpense = totalExpense,
-                    totalIncome = totalIncome
+                    totalIncome = totalIncome,
+                    categoryNames = categoryNames
                 )
             }
         }
@@ -275,7 +261,7 @@ private fun AnalyticsContent(
 fun SummaryCardFixed(
     title: String,
     amount: Double,
-    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    currency: com.gis.smartfinance.data.Currency,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
     modifier: Modifier = Modifier
@@ -293,20 +279,11 @@ fun SummaryCardFixed(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            ThemedIconBackground(
+                icon = icon,
+                contentDescription = null,
+                baseColor = color
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 title,
@@ -315,7 +292,7 @@ fun SummaryCardFixed(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "${currency.symbol} ${String.format("%.2f", amount)}", // ✅ USES CURRENCY
+                amount.formatWithCurrency(currency),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color,
@@ -329,7 +306,8 @@ fun SummaryCardFixed(
 private fun QuickInsightsCard(
     expensesByCategory: Map<String, Double>,
     totalExpense: Double,
-    totalIncome: Double
+    totalIncome: Double,
+    categoryNames: Map<String, String>
 ) {
     val topCategory = expensesByCategory.maxByOrNull { it.value }
     val savingsRate = if (totalIncome > 0) {
@@ -340,7 +318,7 @@ private fun QuickInsightsCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = AppColors.InfoLight
+            containerColor = getSemanticBackgroundColor(AppColors.InfoLight, AppColors.InfoDarkBg)
         )
     ) {
         Column(
@@ -350,7 +328,7 @@ private fun QuickInsightsCard(
                 Icon(
                     Icons.Default.Lightbulb,
                     contentDescription = null,
-                    tint = AppColors.Info,
+                    tint = getSemanticColor(AppColors.Info, AppColors.InfoDark),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -367,7 +345,7 @@ private fun QuickInsightsCard(
             if (topCategory != null) {
                 InsightRow(
                     icon = Icons.Default.TrendingUp,
-                    text = "Your biggest expense category is ${topCategory.key} (${String.format("%.0f", topCategory.value / totalExpense * 100)}%)"
+                    text = "Your biggest expense category is ${categoryNames[topCategory.key] ?: topCategory.key} (${String.format("%.0f", topCategory.value / totalExpense * 100)}%)"
                 )
             }
 
@@ -421,16 +399,7 @@ fun PieChart(
     data: Map<String, Double>,
     modifier: Modifier = Modifier
 ) {
-    val colors = listOf(
-        AppColors.Purple,
-        AppColors.Error,
-        Color(0xFF4ECDC4),
-        AppColors.Warning,
-        AppColors.Success,
-        Color(0xFFAB47BC),
-        Color(0xFF29B6F6),
-        Color(0xFFFF7043)
-    )
+    val colors = getChartColors()
 
     val total = data.values.sum()
     if (total == 0.0) return
@@ -462,18 +431,10 @@ fun PieChart(
 @Composable
 fun CategoryLegend(
     data: Map<String, Double>,
-    currency: com.gis.smartfinance.data.Currency // ✅ ADDED PARAMETER
+    currency: com.gis.smartfinance.data.Currency, // ✅ ADDED PARAMETER
+    categoryNames: Map<String, String>
 ) {
-    val colors = listOf(
-        AppColors.Purple,
-        AppColors.Error,
-        Color(0xFF4ECDC4),
-        AppColors.Warning,
-        AppColors.Success,
-        Color(0xFFAB47BC),
-        Color(0xFF29B6F6),
-        Color(0xFFFF7043)
-    )
+    val colors = getChartColors()
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -493,7 +454,7 @@ fun CategoryLegend(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    entry.key,
+                    categoryNames[entry.key] ?: entry.key,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
@@ -528,10 +489,10 @@ fun CategoryRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "${currency.symbol} ${String.format("%.2f", amount)} (${String.format("%.1f", percentage)}%)", // ✅ USES CURRENCY
+                "${amount.formatWithCurrency(currency)} (${String.format("%.1f", percentage)}%)",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.Purple
+                color = MaterialTheme.colorScheme.primary
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -541,7 +502,7 @@ fun CategoryRow(
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
-            color = AppColors.Purple,
+            color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
     }
